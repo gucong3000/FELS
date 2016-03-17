@@ -34,11 +34,15 @@
 	var strFactory = "__factory__";
 
 	function setParent(module, parent) {
-		if (!module.parent || module.parent.id === "." || module.parent === rootModule) {
-			module.parent = parent;
-		}
-		if (parent.children.indexOf(module) < 0) {
-			parent.children.push(module);
+		if (module, parent) {
+			var propParent = module.parent;
+			var propChildren = parent.children;
+			if (!propParent || propParent.id === "." || propParent === rootModule) {
+				module.parent = parent;
+			}
+			if (Array.isArray(propChildren) && propChildren.indexOf(module) < 0) {
+				propChildren.push(module);
+			}
 		}
 	}
 
@@ -112,14 +116,14 @@
 
 				// 如果加载过，则从缓存中获取
 				if (module) {
-					setParent(module, parent);
-					exports = runFactory(module);
-					if (exports) {
-						return exports;
+					if (module.loaded) {
+						setParent(module, parent);
+						return runFactory(module);
 					}
+				} else {
+					module = getModule(path);
 				}
 
-				module = getModule(path);
 				setParent(module, parent);
 
 				var fileText = getFileText(path);
@@ -179,24 +183,18 @@
 
 	function runFactory(module) {
 		var exports = module.exports;
-		if ("exports" in module) {
-			return module.exports;
-		} else if (typeof module[strFactory] === "function") {
+		if (typeof module[strFactory] === "function") {
 			exports = {};
 			var require = getRequire(module);
 			var factory = module[strFactory];
 			var amd = factory.amd;
 			//console.log(!/^function(?:\s*\w+)?\s*\(\s*require(?:\s*,\s*exports(?:\s*,\s*module)?)?\s*\)\s*\{/.test(factoryCode));
 			delete module.exports;
-			var result = factory.apply(window, Array.isArray(amd) ? amd.map(require) : [require, exports, module]);
-			exports = module.exports || result || exports;
+			exports = module.exports || factory.apply(window, Array.isArray(amd) ? amd.map(require) : [require, exports, module]) || exports;
 			delete module[strFactory];
-			return (module.exports = exports);
-		} else {
-			setTimeout(function() {
-				runFactory(module);
-			}, 800);
+			module.exports = exports;
 		}
+		return exports;
 	}
 
 	// 获取文件内容
@@ -256,6 +254,28 @@
 		return pathAbs(resolve(path)).replace(/^\w+\:\/\/+[^\/]+/, "");
 	}
 
+	// 去除数组中的空数据并去重
+	function arrayUnique(arr) {
+		if (Array.isArray(arr)) {
+			//n为hash表，r为临时数组
+			var n = {},
+				r = [];
+			//遍历当前数组
+			for (var i = 0; i < arr.length; i++) {
+				//如果hash表中没有当前项
+				if (arr[i] && !n[arr[i]]) {
+					//存入hash表
+					n[arr[i]] = true;
+					//把当前数组的当前项push到临时数组里面
+					r.push(arr[i]);
+				}
+			}
+			if (r.length) {
+				return r;
+			}
+		}
+	}
+
 	// 为window对象新增属性
 	function defineProperty(propertyName, descriptor, object) {
 		if (typeof descriptor === "function") {
@@ -285,7 +305,7 @@
 
 	rootModule = getModule();
 	// var require = getRequire(module);
-	module.exports = exports;
+	rootModule.exports = exports;
 
 	resolve = getRequire(rootModule).resolve;
 
@@ -314,51 +334,48 @@
 		var require = getRequire(module);
 
 		if (typeof factory === "function") {
+			if (factory.amd) {
+				// amd 模块的依赖声明与factory函数的参数一致，所以不要动它的依赖声明，直接记录下来
+				factory.amd = deps;
+			}
+			// 依赖声明数组进行去重和去空
+			deps = arrayUnique(deps);
+
 			module[strFactory] = factory;
 			module.loaded = true;
 			if (deps) {
-				if (factory.amd) {
-					factory.amd = deps;
-				}
-				deps = deps.filter(function(filename) {
-					return filename;
+				// 根据依赖声明创建其子模块
+				module.children = null;
+				module.children = deps.map(function(filename) {
+					var childModule = getModule(require.resolve(filename));
+					setParent(childModule, module);
+					return childModule;
 				});
-				if (deps.length) {
-					Promise.all(deps.map(function(filename) {
-						return loadScript(require.resolve(filename), module);
-					})).then(run);
-					return;
-				}
 			}
-			run();
-		} else if (factory) {
-			module.exports = factory;
-		}
-
-		function run() {
 			loadDeps(module).then(function() {
 				if (module.parent === rootModule) {
 					runFactory(module);
 				}
 			});
+		} else if (factory) {
+			module.exports = factory;
 		}
 	}
 	window.define = define;
 	define.cmd = {};
 
+	// 加载模块与其所依赖模块
 	function loadDeps(module) {
 		var promise;
-		var path = module.filename;
 		if (module.loaded) {
-			if (module.children) {
-				promise = Promise.all(module.children.map(loadDeps));
-			} else {
-				promise = loadScript(path);
-			}
+			promise = Promise.all(module.children.filter(function(childModule) {
+				return !childModule.loaded;
+			}).map(loadDeps));
 		} else {
+			// 先加载父模块，再加载其依赖
 			promise = new Promise(function(resolve, reject) {
-				loadScript(path)["catch"](reject).then(function() {
-					loadDeps(module)["catch"](reject).then(resolve);
+				loadModule(module)["catch"](reject).then(function() {
+					loadDeps(module).then(resolve);
 				});
 			});
 		}
@@ -372,13 +389,12 @@
 
 	var urlCache = {};
 
-	function loadScript(url, parentModule) {
+	function loadModule(childModule) {
+		var url = childModule.filename;
 		var promise = urlCache[url];
 
 		if (!promise) {
 			promise = new Promise(function(resolve, reject) {
-				var childModule = getModule(url);
-				setParent(childModule, parentModule);
 				if (childModule.loaded) {
 					return resolve(childModule);
 				}
@@ -395,6 +411,7 @@
 						// Just run the callback
 						setTimeout(function() {
 							childModule.loaded = true;
+							delete urlCache[url];
 							resolve(childModule);
 						}, 0);
 					}
