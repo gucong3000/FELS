@@ -80,6 +80,8 @@
 		return module;
 	}
 
+	var anonymous = 0;
+
 	// 获取require接口
 	function getRequire(parent) {
 		parent = parent || getModule();
@@ -107,7 +109,11 @@
 		}
 
 		// 模块加载
-		function require(filename) {
+		function require(filename, callback) {
+			var argIsArray = Array.isArray(filename);
+			if (callback || argIsArray) {
+				return define(parent.id, argIsArray ? filename : [filename], callback || function() {});
+			}
 
 			var path = resolve(filename);
 			if (path) {
@@ -188,9 +194,9 @@
 			var require = getRequire(module);
 			var factory = module[strFactory];
 			var amd = factory.amd;
-			//console.log(!/^function(?:\s*\w+)?\s*\(\s*require(?:\s*,\s*exports(?:\s*,\s*module)?)?\s*\)\s*\{/.test(factoryCode));
 			delete module.exports;
-			exports = module.exports || factory.apply(window, Array.isArray(amd) ? amd.map(require) : [require, exports, module]) || exports;
+			var result = factory.apply(window, (Array.isArray(amd) ? amd.map(require) : [require, exports, module]));
+			exports = module.exports || result || exports;
 			delete module[strFactory];
 			module.exports = exports;
 		}
@@ -245,7 +251,7 @@
 	// 求引用路径
 	function pathAbs(path) {
 		if (!/^\w+:\/+/.test(path)) {
-			path = pathJoin(baseURI, path);
+			path = resolve(pathJoin(baseURI, path));
 		}
 		return path.replace(reAbsPath, "");
 	}
@@ -345,11 +351,9 @@
 			module.loaded = true;
 			if (deps) {
 				// 根据依赖声明创建其子模块
-				module.children = null;
-				module.children = deps.map(function(filename) {
+				deps.forEach(function(filename) {
 					var childModule = getModule(require.resolve(filename));
 					setParent(childModule, module);
-					return childModule;
 				});
 			}
 			loadDeps(module).then(function() {
