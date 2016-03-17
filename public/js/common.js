@@ -187,6 +187,15 @@
 		return exports;
 	}
 
+	function isNoChange(obj) {
+		if (typeof obj === "object") {
+			for (var i in obj) {
+				return;
+			}
+			return true;
+		}
+	}
+
 	function runFactory(module) {
 		var exports = module.exports;
 		if (typeof module[strFactory] === "function") {
@@ -194,9 +203,14 @@
 			var require = getRequire(module);
 			var factory = module[strFactory];
 			var amd = factory.amd;
-			delete module.exports;
+			module.exports = exports;
 			var result = factory.apply(window, (Array.isArray(amd) ? amd.map(require) : [require, exports, module]));
-			exports = module.exports || result || exports;
+			if (isNoChange(exports)) {
+				exports = module.exports;
+				if (isNoChange(exports)) {
+					exports = result;
+				}
+			}
 			delete module[strFactory];
 			module.exports = exports;
 		}
