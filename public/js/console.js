@@ -6,6 +6,7 @@
 		node = create("console"),
 		nodeHTML = "<div style=\"background: #ccc; padding: 0 1em; zoom: 1;\"><div style=\"float: right;\"><a href=\"#clear\">清除<a> <a href=\"#close\">关闭<a></div>调试控制台</div>",
 		consoleStyle = "XMLHttpRequest" in window ? "position: fixed; bottom: 0; left: 0; max-height: 300px;" : "position: absolute; top: expression((function(me){try{return me.offsetParent.scrollTop+me.offsetParent.clientHeight-me.offsetHeight}catch(e){}})(this));",
+		newConsole,
 		oldConsole;
 
 	//Firefox\Chrome下不使用自定义控制台，原生的已经很NB了
@@ -58,26 +59,24 @@
 		var str;
 		try {
 			//数组
-			if (obj instanceof Array) {
-				str = "[Array] [ " + obj.join(", ") + "]";
-				//element
-			} else if (obj.outerHTML) {
+			if (!obj) {
+				str = String(obj);
+			}
+			if (obj.outerHTML) {
 				str = "[Element] " + obj.outerHTML;
 				//Function
 			} else if (obj.call && obj.apply) {
 				str = "[Function] " + obj.toString();
 				//其他对象
+			} else if (window.JSON) {
+				str = JSON.stringify(obj);
 			} else {
-				str = obj.toString();
-				if (/\bError\]/.test(str)) {
-					str += " " + obj.number;
-					str += ": " + obj.message || obj.description;
-				}
+				str = String(obj);
 			}
 		} catch (ex) {
 			str = String(obj);
 		}
-		return txt2html(str.replace(/^\[object\s+/, "["));
+		return txt2html(str);
 	}
 
 	//console.log
@@ -105,6 +104,23 @@
 		log(label + ": " + countObj[label]++);
 	}
 
+	var timeObj = {};
+
+	function time(label) {
+		label = String(label);
+		if (!timeObj[label]) {
+			timeObj[label] = new Date();
+		}
+	}
+
+	function timeEnd(label) {
+		label = String(label);
+		if (timeObj[label]) {
+			log(label + ": " + (new Date() - timeObj[label]) + "ms");
+			timeObj[label] = 0;
+		}
+	}
+
 	function clear() {
 		node.innerHTML = nodeHTML;
 	}
@@ -129,26 +145,42 @@
 		}
 	};
 
-	if (console) {
-		//保存旧的console.log接口
-		oldConsole = console;
-	} else {
-		//IE6下创建window.console
-		window.console = {
-			error: error,
-			debug: log,
-			count: count,
-			warn: log,
-			info: log,
-			assert: assert,
-			log: log,
-			clear: clear,
+	newConsole = {
+		assert: assert,
+		clear: clear,
+		count: count,
+		debug: log,
+		error: error,
+		info: log,
+		log: log,
+		time: time,
+		timeEnd: timeEnd,
+		warn: log,
+	};
+
+	function callOldConsole(fnName) {
+		var fn = newConsole[fnName];
+		newConsole[fnName] = function() {
+			fn.apply(newConsole, arguments);
+			oldConsole[fnName].apply(oldConsole, arguments);
 		};
 	}
 
+
+	if (console) {
+		//保存旧的console.log接口
+		oldConsole = console;
+
+		for (var i in newConsole) {
+			callOldConsole(i);
+		}
+	}
+	// 创建window.console
+	window.console = newConsole;
+
 	//js报错监控
 	window.onerror = function(sMsg, sUrl, sLine) {
-		addLog("<div style=\"float: right\">" + sUrl + " 第" + sLine + "行</div>[error] <span style=\"color: red;\">" + sMsg + "</span>");
+		newConsole.error("<div style=\"float: right\">" + sUrl + " 第" + sLine + "行</div>[error] <span style=\"color: red;\">" + sMsg + "</span>");
 		return true;
 	};
 
