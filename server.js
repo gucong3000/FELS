@@ -17,6 +17,27 @@ function jsHint(code, options) {
 	}
 }
 
+var pathMap = {
+	"console": "polyfill/console.js",
+	"es5": "polyfill/es5-shim.js",
+	"JSON": "polyfill/json2.min.js",
+	"Promise": "polyfill/es6-promise.js",
+};
+
+function readFile(path) {
+	if (Array.isArray(path)) {
+		return Promise.all(path.map(readFile));
+	}
+	return new Promise(function(resolve, reject) {
+		fs.readFile(pathMap[path] || path.join("public", path), (err, data) => {
+			if (err) {
+				reject(err);
+			} else {
+				resolve(data.toString());
+			}
+		});
+	});
+}
 
 fs.readFile(".jshintrc", (err, data) => {
 	try {
@@ -26,7 +47,19 @@ fs.readFile(".jshintrc", (err, data) => {
 	}
 });
 app.use(function middleware(req, res, next) {
-	if (/\.js$/.test(req.path)) {
+	if (/__service__/.test(req.path)) {
+		console.log(req.originalUrl);
+		var combo = req.originalUrl.match(/\?\?+(.+?)\.\w+$/);
+		if (combo) {
+			combo = combo[1].split(/\s*,\s*/);
+			console.log(combo);
+			readFile(combo).then((files) => {
+				res.send(files.join("\n"));
+			});
+		} else {
+			next();
+		}
+	} else if (/\.js$/.test(req.path)) {
 		console.log(req.path);
 		var path = require("path");
 		fs.readFile(path.join("public", req.path), (err, data) => {
@@ -39,6 +72,7 @@ app.use(function middleware(req, res, next) {
 				node: true,
 				strict: false,
 			});
+			fs.writeFile("codeinfo.json", JSON.stringify(codeInfo, 0, 4));
 
 			if (Array.isArray(codeInfo.implieds) && codeInfo.implieds.some(obj => {
 					return obj.name === "define";

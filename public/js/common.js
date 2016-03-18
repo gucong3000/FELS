@@ -7,6 +7,13 @@
 // 判断是浏览器环境
 (function(window, undefined) {
 
+	// 兼容IE8，待稍后es5-shim.js加载之后，这段就不起作用了
+	if (!Array.isArray) {
+		Array.isArray = function(arg) {
+			return Object.prototype.toString.call(arg) === "[object Array]";
+		};
+	}
+
 	var document = window.document;
 	// 路径拼接正则，父目录
 	var reParentPath = /[^\/]+\/\.\.\//g;
@@ -40,27 +47,44 @@
 			if (!propParent || propParent.id === "." || propParent === rootModule) {
 				module.parent = parent;
 			}
-			if (Array.isArray(propChildren) && propChildren.indexOf(module) < 0) {
+
+			// && propChildren.indexOf && 是在兼容IE8，待稍后es5-shim.js加载之后，这句就不起作用了
+			if (Array.isArray(propChildren) && propChildren.indexOf && propChildren.indexOf(module) < 0) {
 				propChildren.push(module);
 			}
 		}
 	}
 
-	function getAllScript() {
-		return document.scripts || document.querySelectorAll("script");
+	var interactiveScript;
+	var currentlyAddingScript;
+
+	function getCurrentScript() {
+		if (currentlyAddingScript) {
+			return currentlyAddingScript;
+		}
+
+		var scripts = document.scripts || document.getElementsByTagName("script");
+		var lastScript;
+
+		for (var i = scripts.length - 1; i >= 0; i--) {
+			var script = scripts[i];
+			if (script.src) {
+				if (script.readyState === "interactive") {
+					interactiveScript = script;
+					return interactiveScript;
+				}
+				if (!lastScript) {
+					lastScript = script;
+				}
+			}
+		}
+
+		return lastScript;
 	}
 
 	// 为js模块提供module对象
 	function getModule(path) {
-		var script;
-		if (!path) {
-			script = getAllScript();
-			script = script[script.length - 1];
-			path = script.src;
-			if (!path) {
-				return rootModule;
-			}
-		}
+		path = path || getCurrentScript().src;
 
 		var id = pathRel(path);
 		var module = moduleCache[id];
@@ -79,8 +103,6 @@
 
 		return module;
 	}
-
-	var anonymous = 0;
 
 	// 获取require接口
 	function getRequire(parent) {
@@ -369,33 +391,46 @@
 					var childModule = getModule(require.resolve(filename));
 					setParent(childModule, module);
 				});
+				loadDeps(module).then(run);
+			} else {
+				run();
 			}
-			loadDeps(module).then(function() {
-				if (module.parent === rootModule) {
-					runFactory(module);
-				}
-			});
 		} else if (factory) {
 			module.exports = factory;
+		}
+
+		function run() {
+			if (module.parent === rootModule) {
+				runFactory(module);
+			}
 		}
 	}
 	window.define = define;
 	define.cmd = {};
 
 	// 加载模块与其所依赖模块
-	function loadDeps(module) {
+	function loadDeps(module, workers) {
 		var promise;
+		workers = workers || {};
 		if (module.loaded) {
-			promise = Promise.all(module.children.filter(function(childModule) {
-				return !childModule.loaded;
-			}).map(loadDeps));
+			promise = Promise.all(module.children.map(function(childModule) {
+				if (!workers[childModule.id]) {
+					return loadDeps(childModule, workers);
+				}
+			}));
 		} else {
-			// 先加载父模块，再加载其依赖
-			promise = new Promise(function(resolve, reject) {
-				loadModule(module)["catch"](reject).then(function() {
-					loadDeps(module).then(resolve);
+			promise = workers[module.id];
+			if (!promise) {
+				// 先加载父模块，再加载其依赖
+				promise = new Promise(function(resolve, reject) {
+					loadModule(module).then(function() {
+						loadDeps(module, workers).then(resolve, reject);
+					}, reject);
+				})["catch"](function(e) {
+					console.error(e.target);
 				});
-			});
+				workers[module.id] = promise;
+			}
 		}
 		return promise;
 	}
@@ -440,40 +475,36 @@
 					done = 1;
 					reject(e);
 				};
+				script.async = true;
 				script.src = url;
+				currentlyAddingScript = script;
 				parentNode.appendChild(script);
+				currentlyAddingScript = 0;
 			});
 			urlCache[url] = promise;
 		}
 		return promise;
 	}
+	(function() {
+		var polyfillModules = [];
 
-	function shim(file, prop, test) {
-		prop = prop || file;
-		test = test || prop;
-		var exports;
-
-		var testFn = new Function(/\breturn\b/.test(test) ? test : ("return " + test));
-
-		function testProp() {
-			try {
-				return exports = testFn.call(window);
-			} catch (ex) {
-
+		function polyfill(name) {
+			if (!window[name]) {
+				polyfillModules.push(name);
 			}
 		}
-		if (!testProp()) {
-			var rsult = require(file);
-			if (/^\w+$/.test(prop) && !testProp()) {
-				window[prop] = rsult;
-			}
-		}
-		return exports;
-	}
 
-	shim("console");
-	shim("es5-shim.min", "JSON");
-	shim("json2.min", "JSON");
-	shim("es6-promise", "Promise");
+		polyfill("console");
+		polyfill("Promise");
+		polyfill("JSON");
+		var a = [];
+		if (!(a.every && a.filter && a.forEach && a.map && a.some && a.sort && a.reduce && a.reduceRight && "".trim && open.bind)) {
+			polyfillModules.push("es5");
+		}
+		console.log(rootModule);
+		if (polyfillModules.length) {
+			getRequire()("/__service__/??" + polyfillModules.join(","));
+		}
+	})();
 
 })(window);
