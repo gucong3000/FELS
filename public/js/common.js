@@ -160,6 +160,7 @@
 					if (/\.js(\?|#|$)/.test(path)) {
 						// 尝试作为js模块解析
 						try {
+							/* jshint evil: true */
 							new Function("require", "exports", "module", fileText).apply(window, [getRequire(module), module.exports, module]);
 						} catch (ex) {
 							var stack = ex.stack.match(/<anonymous>:(\d+)(?:\:(\d+))/);
@@ -212,7 +213,7 @@
 	function isNoChange(obj) {
 		if (typeof obj === "object") {
 			for (var i in obj) {
-				return;
+				return i || true;
 			}
 			return true;
 		}
@@ -488,22 +489,25 @@
 	(function() {
 		var polyfillModules = [];
 
-		function polyfill(name) {
+		function polyfill(name, fileName) {
+			fileName = fileName || name;
 			if (!window[name]) {
 				polyfillModules.push(name);
 			}
+			define(name, function() {
+				return window[name];
+			});
 		}
 
 		polyfill("console");
-		polyfill("Promise");
-		polyfill("JSON");
+		polyfill("Promise", "es6-promise");
+		polyfill("JSON", "json2");
 		var a = [];
 		if (!(a.every && a.filter && a.forEach && a.map && a.some && a.sort && a.reduce && a.reduceRight && "".trim && open.bind)) {
 			polyfillModules.push("es5");
 		}
-		console.log(rootModule);
 		if (polyfillModules.length) {
-			getRequire()("/__service__/??" + polyfillModules.join(","));
+			getRequire()("polyfill/" + (polyfillModules.length > 1 ? "??" : "") + polyfillModules.join(".js,").toLowerCase() + ".js");
 		}
 	})();
 

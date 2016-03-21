@@ -1,0 +1,17 @@
+(function(root, factory) {
+[ 'factory(root.jQuery)', 'factory(require("jquery"))' ]
+
+}(
+(function(root, factory) {
+[ 'factory(root.jQuery, root._)',
+  'factory(require("jquery"), require("underscore"))' ]
+
+}(
+(function(root, factory) {
+[ 'factory()', 'factory()' ]
+
+}(
+(function(root, factory) {
+[ 'factory()' ]
+
+}(
