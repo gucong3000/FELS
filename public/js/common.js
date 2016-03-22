@@ -210,34 +210,35 @@
 		return exports;
 	}
 
-	function isNoChange(obj) {
+	function changed(obj) {
 		if (typeof obj === "object") {
 			for (var i in obj) {
 				return i || true;
 			}
-			return true;
+			return false;
 		}
+		return true;
 	}
 
 	function runFactory(module) {
-		var exports = module.exports;
 		if (typeof module[strFactory] === "function") {
-			exports = {};
+			var result;
+			var exports = {};
 			var require = getRequire(module);
 			var factory = module[strFactory];
 			var amd = factory.amd;
 			module.exports = exports;
-			var result = factory.apply(window, (Array.isArray(amd) ? amd.map(require) : [require, exports, module]));
-			if (isNoChange(exports)) {
-				exports = module.exports;
-				if (isNoChange(exports)) {
-					exports = result;
+			var returnVal = factory.apply(window, (Array.isArray(amd) ? amd.map(require) : [require, exports, module]));
+			delete module[strFactory];
+			if (!changed(module.exports)) {
+				if (changed(exports)) {
+					module.exports = exports;
+				} else if (result != null) {
+					module.exports = returnVal;
 				}
 			}
-			delete module[strFactory];
-			module.exports = exports;
 		}
-		return exports;
+		return module.exports;
 	}
 
 	// 获取文件内容
@@ -319,7 +320,13 @@
 		}
 	}
 
-	// 为window对象新增属性
+
+	/**
+	 * 直接在一个对象上定义一个新属性，或者修改一个已经存在的属性
+	 * @param  {String} propertyName 需被定义或修改的属性名。
+	 * @param  {Object|Function} descriptor   传函数，则将其作为get函数，传对象，则参见 https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Global_Objects/Object/defineProperty
+	 * @param  {[Object]} object       需要定义属性的对象，默认值为window。
+	 */
 	function defineProperty(propertyName, descriptor, object) {
 		if (typeof descriptor === "function") {
 			descriptor = {
@@ -492,7 +499,7 @@
 		function polyfill(name, fileName) {
 			fileName = fileName || name;
 			if (!window[name]) {
-				polyfillModules.push(name);
+				polyfillModules.push(fileName);
 			}
 			define(name, function() {
 				return window[name];
@@ -504,7 +511,7 @@
 		polyfill("JSON", "json2");
 		var a = [];
 		if (!(a.every && a.filter && a.forEach && a.map && a.some && a.sort && a.reduce && a.reduceRight && "".trim && open.bind)) {
-			polyfillModules.push("es5");
+			polyfillModules.push("es5-shim");
 		}
 		if (polyfillModules.length) {
 			getRequire()("polyfill/" + (polyfillModules.length > 1 ? "??" : "") + polyfillModules.join(".js,").toLowerCase() + ".js");

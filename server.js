@@ -1,10 +1,16 @@
 "use strict";
 var express = require("express");
 var path = require("path");
+var url = require("url");
 var app = express();
+var MemoryFileSystem = require("memory-fs");
 var fs = require("fs");
-
+var memFs = new MemoryFileSystem();
 var jshintrc;
+app.set("x-powered-by", false);
+app.set("etag", "strong");
+
+const staticRoot = "public";
 
 function jsHint(code, options) {
 	var JSHINT = require("jshint").JSHINT;
@@ -18,80 +24,128 @@ function jsHint(code, options) {
 	}
 }
 
+
 function jsModule(data, path) {
-	var isUmd;
-	data = data.toString();
+	if (/[\/\/]common\.js$/.test(path)) {
+		return data;
+	}
 
-	data = data.replace(
-		/(\(function\s*\([^()]+\)\s*\{[^{}]*)((?:\s*\bif\s*\(\s*typeof\s+(?:define|module|exports)\s*[!=]==?\s*(['"])\w+\3.*?\)\s*\{[^{}]+(?:,?\s*\bfunction\s*\(\s*\)\s*\{[^\{\}]+\})?[^{}]+\}(?:\s*else\b)?)+(?:\s*\{[^{}]+\})?)(\s*\}[()])/g,
-		function(s, pre, content, quotes, end) {
-			var factory;
-			var args;
+	/**
+	 * 将定义amd、umd规范模块的js代码段转为定义cmd模范模块的js代码段，转换成功会将isUmd变量赋值为true
+	 * @param  {String} code 要转换的代码段
+	 * @param  {[String]} min 是否压缩代码，默认不压缩
+	 * @return {String|undefined}      转换成功时返回转换后的代码段，失败则返回undefined
+	 */
+	function parse2cmd(code, min) {
+		var deps;
+		var factory;
+		var args;
 
-			function define(id, deps, factory) {
-				var argsLen = arguments.length;
-				// define(factory)
-				if (argsLen === 1) {
-					factory = id;
+		function define(id, deps, factory) {
+			var argsLen = arguments.length;
+			// define(factory)
+			if (argsLen === 1) {
+				factory = id;
+				id = undefined;
+			} else if (argsLen === 2) {
+				factory = deps;
+
+				// define(deps, factory)
+				if (Array.isArray(id)) {
+					deps = id;
 					id = undefined;
-				} else if (argsLen === 2) {
-					factory = deps;
-
-					// define(deps, factory)
-					if (Array.isArray(id)) {
-						deps = id;
-						id = undefined;
-					}
-					// define(id, factory)
-					else {
-						deps = undefined;
-					}
 				}
-				args = {
-					id, deps, factory
-				};
-			}
-
-			define.amd = {};
-
-			try {
-				/* jshint evil: true */
-				new Function("define", pre + content + "})(define,define)").call(null, define);
-			} catch (ex) {
-
-			}
-			if (args) {
-				path = args.id || path;
-				deps = args.deps && args.deps.length ? ("," + JSON.stringify(args.deps)) : "";
-				if (args.factory === define) {
-					factory = content.match(/[^{}]+\bmodule\.exports\s*=\s*[^{}]+/);
-					if (factory) {
-						factory = factory[0];
-					} else {
-						factory = content.match(/\bdefine\(.*?(\w+)\s*\)/);
-						if (factory) {
-							factory = factory[1];
-							factory = `module.exports = ${ factory }(` + (args.deps && args.deps.length ? args.deps.map(s => `require("${ s }")`).join(",") : "") + ");";
-						}
-					}
-					if (factory) {
-						factory = `function(require, exports, module){
-	${ factory }
-}`;
-					}
-				} else if (args.factory && !args.factory.name) {
-					factory = args.factory.toString();
+				// define(id, factory)
+				else {
+					deps = undefined;
 				}
-				// factory = args.factory === define ? factory : args.factory.toString();
+			}
+			args = {
+				id, deps, factory
+			};
+		}
+
+		define.amd = {};
+
+		try {
+			/* jshint evil: true */
+			new Function("define", code).call(null, define);
+		} catch (ex) {
+
+		}
+		if (args) {
+			path = args.id || path;
+			deps = args.deps && args.deps.length ? ("," + JSON.stringify(args.deps)) : "";
+			if (args.factory === define) {
+				factory = code.match(/[^{}]+\bmodule\.exports\s*=\s*[^{}]+/);
 				if (factory) {
-					return `${ pre }
-	define("${ path }"${ deps }, ${ factory });
-${ end }`;
-					isUmd = true;
-
+					factory = factory[0];
+				} else {
+					factory = code.match(/\bdefine\(.*?(\w+)\s*\)/);
+					if (factory) {
+						factory = factory[1];
+						factory = `module.exports = ${ factory }(` + (args.deps && args.deps.length ? args.deps.map(s => `require("${ s }")`).join(",") : "") + ");";
+					}
 				}
+				if (factory) {
+					factory = `function(require, exports, module){
+		${ factory }
+	}`;
+				}
+			} else if (args.factory && !args.factory.name) {
+				factory = args.factory.toString();
 			}
+			// factory = args.factory === define ? factory : args.factory.toString();
+			if (factory) {
+				isUmd = true;
+				factory = `define("${ path }"${ deps }, ${ factory });`;
+				if (min) {
+					var UglifyJS = require("uglify-js");
+					factory = UglifyJS.minify(factory, {
+						fromString: true
+					}).code;
+				}
+				return factory;
+			}
+		}
+	}
+	var isUmd;
 
+	// 转换标准的amd或umd规范的js
+	data = data.replace(
+		/(\(function\s*\([^()]+\)\s*\{[^{}]*)((?:\bif\s*\(\s*typeof\s+(?:define|module|exports)\s*[!=]==?\s*(['"])\w+\3.*?\)\s*\{[^{}]+(?:,?\s*\bfunction\s*\(\s*\)\s*\{[^\{\}]+\})?[^{}]+\}(?:\s*\belse\b\s*)?)+(?:\s*\{[^{}]+\})?)(\s*\}[()])/g,
+		function(s, pre, content, quotes, end) {
+			content = parse2cmd(pre + content + "})(define,define)");
+			return content ? `${ pre }
+	${ content }
+${ end }` : s;
+		}
+	);
+
+	if (isUmd) {
+		return data;
+	}
+
+	// 转换动态生成工厂函数的amd规范的js
+	data = data.replace(
+		/(?:\bif\s*\(\s*typeof\s+(?:define|module|exports)\s*[!=]==?\s*(['"])\w+\1.*?\)\s*\{[^{}]+(?:,?\s*\bfunction\s*\(\s*\)\s*\{[^\{\}]+\})+[^{}]+\}(?:\s*\belse\b\s*)?)+(?:\s*\{[^{}]+\})?/g,
+		function(content) {
+			return parse2cmd(content) || content;
+		}
+	);
+
+	if (isUmd) {
+		return data;
+	}
+
+	// 转换压缩代码中标准的amd或umd规范的js
+	data = data.replace(
+		/(\(function\([^()]*(\b\w+\b)[^\(\)]*\)\{)([^{}]*\bdefine\.amd\?define\([^\(\)]*\b\2\):\2\b[^{}]*)(\}[\(\)])/g,
+		function(s, pre, factory, content, end) {
+			content = parse2cmd(pre + content + "})(define,define)");
+			if (content, true) {
+				s = `${ pre }${ content }${ end }`;
+			}
 			return s;
 		}
 	);
@@ -99,72 +153,27 @@ ${ end }`;
 	if (isUmd) {
 		return data;
 	}
+
+	// 转换压缩代码中动态生成工厂函数的amd规范的js
+	data = data.replace(
+		/\bdefine\.amd&&define\([^\(\)]*\bfunction\([^\(\)]*\)\{[^\{\}]+\}\)/g,
+		function(content) {
+			return parse2cmd(content, true) || content;
+		}
+	);
+
+	if (isUmd) {
+		return data;
+	}
+
 	var codeInfo = jsHint(data, {
 		node: true,
 		strict: false,
 	});
 
-	if (/[\/\/]common\.js$/.test(path)) {
-		return data;
-	}
-
-	if (Array.isArray(codeInfo.implieds) && codeInfo.implieds.some(obj => {
+	if (!(Array.isArray(codeInfo.implieds) && codeInfo.implieds.some(obj => {
 			return obj.name === "define";
-		})) {
-
-		// AMD 规范的 js module.
-		data = data.replace(/(\bif\s*\([^\(\)]+?)(\s*&&\s*)\bdefine\.(\w+)(\s*\)\s*\{[^\{\}]*\bdefine\s*\()([^\(\)]*(?:,?\s*\bfunction\s*\(\s*\)\s*\{[^\{\}]+\})?)(\)[^\{\}]*\})/, function(s, s1, and, type, s2, args, s3) {
-			// 获取到了define语句
-			var modulePath;
-			var deps;
-			var factoryName;
-			var factory;
-			var hasIndent = /\n\s+/.test(s);
-
-			args.replace(/\bfunction\s*\(\s*\)\s*\{[^\{\}]+\}/g, function(s) {
-
-				// 获取到了factory函数的代码
-				factory = s;
-				return "";
-			}).replace(/\[.*?\]/g, function(s) {
-				// 获取到了模块依赖关系
-				s = JSON.parse(s);
-				if (s.length) {
-					deps = JSON.stringify(s);
-				}
-				return "";
-			}).replace(/(['"'])(\w+)\1/g, function(s, quotes, moduleName) {
-				// 获取到了模块名
-				modulePath = moduleName;
-				return "";
-			}).replace(/^[\s\,]+(.+?)\s*/g, function(s, fName) {
-				// 获取到了factory函数的函数名
-				factoryName = fName;
-				return "";
-			});
-
-			if (factory && !factoryName) {
-				type = "cmd";
-				factoryName = deps ? `(function(){var f=${ factory };f.${ type }=1;return f})()` : factory;
-			}
-
-			type = (type === "cmd" || !deps) ? "" : `(${ factoryName }.${ type } = 1)`;
-
-			if (!type) {
-				and = type;
-			}
-
-			args = [JSON.stringify(modulePath || path)];
-			if (deps) {
-				args.push(deps);
-			}
-			args.push(factoryName);
-
-			args = args.join(hasIndent ? ", " : ",");
-
-			return [s1, and, type, s2, args, s3].join("");
-		});
-	} else if ((Array.isArray(codeInfo.globals) && (codeInfo.globals.indexOf("require") || codeInfo.globals.indexOf("module") || codeInfo.globals.indexOf("exports"))) || (Array.isArray(codeInfo.implieds) && codeInfo.implieds.some(obj => {
+		})) && (Array.isArray(codeInfo.globals) && (codeInfo.globals.indexOf("require") || codeInfo.globals.indexOf("module") || codeInfo.globals.indexOf("exports"))) || (Array.isArray(codeInfo.implieds) && codeInfo.implieds.some(obj => {
 			return /^(?:require|module|exports)$/.test(obj.name);
 		}))) {
 		// CommonJS 规范的 js module.
@@ -198,20 +207,85 @@ ${ data }
 	return data;
 }
 
+var errMsgMap = {
+	"EACCES": "权限不足，对此文件的访问被操作系统拒绝",
+	"EISDIR": "该路径是目录而不是文件",
+	"EMFILE": "当前打开的文件太多，请稍后再试",
+	"ENOENT": "没有找到该文件或目录",
+};
+
+var errCodeMap = {
+	"EACCES": 403,
+	"EISDIR": 422,
+	"EMFILE": 421,
+	"ENOENT": 404,
+};
+
+var memFsTimes = {};
+
 function readFile(filePath) {
 	return new Promise((resolve, reject) => {
-		fs.readFile(path.join("public", filePath), (err, data) => {
-			if (err) {
-				reject(err);
-			} else {
-				resolve(data.toString());
-			}
-		});
-	}).then((data) => {
-		try {
-			data = jsModule(data, filePath);
-		} catch (ex) {
+		var absPath = path.join(staticRoot, filePath);
 
+		function sendErr(err) {
+			var newErr = errMsgMap[err.code] ? errMsgMap[err.code] + "\t" + filePath : err.stack;
+			newErr = new Error(newErr);
+			newErr.status = errCodeMap[err.code] || 400;
+			reject(newErr);
+		}
+
+		function readIo() {
+			fs.readFile(absPath, (err, data) => {
+				if (err) {
+					sendErr(err);
+				} else {
+					memFs.writeFile(filePath, data, function(err) {
+						if (err) {
+							console.log("这里有bug需要调试，文件未写入缓存");
+						} else {
+							memFsTimes[filePath] = new Date();
+						}
+					});
+					resolve(data.toString());
+				}
+			});
+		}
+
+		if (memFsTimes[filePath]) {
+			fs.stat(absPath, (err, stats) => {
+				if (err) {
+					sendErr(err);
+				} else if (stats.mtime > memFsTimes[filePath]) {
+					readIo();
+				} else {
+					memFs.readFile(filePath, (err, data) => {
+						if (err) {
+							readIo();
+						} else {
+							resolve(data.toString());
+						}
+					});
+				}
+			});
+		} else {
+			readIo();
+		}
+
+
+
+	}).then((data) => {
+		if (/\.js$/.test(filePath)) {
+			try {
+				data = jsModule(data, filePath);
+			} catch (ex) {
+
+			}
+		} else if (/\.css$/.test(filePath)) {
+			try {
+				data = jsModule(data, filePath);
+			} catch (ex) {
+
+			}
 		}
 		return data;
 	});
@@ -227,23 +301,52 @@ fs.readFile(".jshintrc", (err, data) => {
 });
 
 app.use((req, res, next) => {
+
+	var type = req.path.replace(/^.*?(\.\w+)?$/, "$1") || req.originalUrl.replace(/^.*?(?:(\.\w+)(?:\?.*)?)?$/, "$1");
+	if (type) {
+		res.type(type);
+	}
 	var combo = req.originalUrl.match(/^(.+?)\?\?+(.+?)$/);
 	var promise;
 	if (combo) {
 		// combo方式文件请求合并
-		promise = Promise.all(combo[2].split(/\s*,\s*/).map(subPath => readFile(path.join(combo[1], subPath)))).then(files => files.join("\n"));
+		promise = Promise.all(combo[2].split(/\s*,\s*/).map(filePath => readFile(url.parse(url.resolve(combo[1], filePath)).pathname)))
+			.then(files => files.join("\n"));
 	} else if (/\.(?:js|css)$/.test(req.path)) {
 		// 普通的js、css操作
 		promise = readFile(req.path);
+	} else {
+		return next();
 	}
-	if (promise) {
-		// 将promise的数据传送给res.send()
-		promise.then(data => res.send(data)).catch(next);
+	// 将promise的数据传送给res.send()
+	promise.then(data => res.send(data)).catch(next);
+});
+
+app.use(express.static(staticRoot));
+
+// production error handler
+// no stacktraces leaked to user
+app.use((err, req, res, next) => {
+	if (err) {
+		console.error(err);
+		var status = err.status || 500;
+		res.status(status).type("html").send(`<!DOCTYPE html>
+<!-- Ticket #11289, IE bug fix: always pad the error page with enough characters such that it is greater than 512 bytes, even after gzip compression abcdefghijklmnopqrstuvwxyz1234567890aabbccddeeffgghhiijjkkllmmnnooppqqrrssttuuvvwwxxyyzz11223344556677889900abacbcbdcdcededfefegfgfhghgihihjijikjkjlklkmlmlnmnmononpopoqpqprqrqsrsrtstsubcbcdcdedefefgfabcadefbghicjkldmnoepqrfstugvwxhyz1i234j567k890laabmbccnddeoeffpgghqhiirjjksklltmmnunoovppqwqrrxsstytuuzvvw0wxx1yyz2z113223434455666777889890091abc2def3ghi4jkl5mno6pqr7stu8vwx9yz11aab2bcc3dd4ee5ff6gg7hh8ii9j0jk1kl2lmm3nnoo4p5pq6qrr7ss8tt9uuvv0wwx1x2yyzz13aba4cbcb5dcdc6dedfef8egf9gfh0ghg1ihi2hji3jik4jkj5lkl6kml7mln8mnm9ono -->
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Server Error - ${ status }</title>
+</head>
+<body>
+<pre>
+${ err.message }
+</pre>
+</body>
+</html>`);
 	} else {
 		next();
 	}
 });
 
-app.use(express.static("public"));
 
 app.listen(3000);
