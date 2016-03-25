@@ -3,14 +3,29 @@ var express = require("express");
 var path = require("path");
 var url = require("url");
 var app = express();
-var MemoryFileSystem = require("memory-fs");
 var fs = require("fs");
-var memFs = new MemoryFileSystem();
-var jshintrc;
+var etag = require("etag");
+var jshintrc = {};
+var memFs = {};
+const staticRoot = "public";
+
+var logger = require("morgan");
+var bodyParser = require("body-parser");
+var cookieParser = require("cookie-parser");
+var compress = require("compression");
+
+
+app.use(logger("dev"));
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({
+	extended: true
+}));
+app.use(cookieParser());
+app.use(compress({
+	level: 9
+}));
 app.set("x-powered-by", false);
 app.set("etag", "strong");
-
-const staticRoot = "public";
 
 function jsHint(code, options) {
 	var JSHINT = require("jshint").JSHINT;
@@ -23,7 +38,6 @@ function jsHint(code, options) {
 		};
 	}
 }
-
 
 function jsModule(data, path) {
 	if (/[\/\/]common\.js$/.test(path)) {
@@ -189,8 +203,6 @@ ${ end }` : s;
 			return "";
 		});
 
-
-
 		if (deps.length) {
 			deps = `,[${ deps.join(",") }]`;
 		} else {
@@ -221,8 +233,6 @@ var errCodeMap = {
 	"ENOENT": 404,
 };
 
-var memFsTimes = {};
-
 function readFile(filePath) {
 	return new Promise((resolve, reject) => {
 		var absPath = path.join(staticRoot, filePath);
@@ -234,71 +244,113 @@ function readFile(filePath) {
 			reject(newErr);
 		}
 
+		function getMtime(callback) {
+			fs.stat(absPath, (err, stats) => {
+				if (!err) {
+					stats = +stats.mtime;
+				}
+				callback(err, stats);
+			});
+		}
+
 		function readIo() {
+			// 从磁盘读取文件内容
 			fs.readFile(absPath, (err, data) => {
 				if (err) {
+					// 文件无法读取，走报错流程
 					sendErr(err);
 				} else {
-					memFs.writeFile(filePath, data, function(err) {
+					// 文件数据转换为字符串
+					data = data.toString();
+
+					// 调用js构建流程
+					if (/\.js$/.test(filePath)) {
+						try {
+							data = jsModule(data, filePath);
+						} catch (ex) {
+							console.error(ex);
+						}
+					} else if (/\.css$/.test(filePath)) {
+						// data = cssModule(data, filePath);
+					}
+
+					// 声明文件缓存
+					var fileCache = {
+						data: data,
+						etag: etag(data),
+					};
+
+					// 读取本地文件修改时间
+					getMtime((err, mtime) => {
 						if (err) {
-							console.log("这里有bug需要调试，文件未写入缓存");
+							sendErr(err);
 						} else {
-							memFsTimes[filePath] = new Date();
+							fileCache.mtime = mtime;
+							memFs[filePath] = fileCache;
+							saveMemFs();
+							resolve(data);
 						}
 					});
-					resolve(data.toString());
 				}
 			});
 		}
 
-		if (memFsTimes[filePath]) {
-			fs.stat(absPath, (err, stats) => {
+		// 优先在内存中寻找文件
+		if (memFs[filePath]) {
+			// 读取本地文件的最后修改时间
+			getMtime((err, mtime) => {
 				if (err) {
+					// 本地文件不能正常访问，删除缓存中的对应数据，并走报错流程
+					delete memFs[filePath];
 					sendErr(err);
-				} else if (stats.mtime > memFsTimes[filePath]) {
+				} else if (mtime !== memFs[filePath].mtime) {
+					// 本地文件的最后修改时间与缓存中不一致，走磁盘读取流程
 					readIo();
 				} else {
-					memFs.readFile(filePath, (err, data) => {
-						if (err) {
-							readIo();
-						} else {
-							resolve(data.toString());
-						}
-					});
+					// 缓存中的数据最后修改时间与磁盘上的一致，发送缓存中的数据
+					resolve(memFs[filePath].data);
 				}
 			});
 		} else {
+			// 内存中无此文件直接走磁盘读取流程
 			readIo();
 		}
-
-
-
-	}).then((data) => {
-		if (/\.js$/.test(filePath)) {
-			try {
-				data = jsModule(data, filePath);
-			} catch (ex) {
-
-			}
-		} else if (/\.css$/.test(filePath)) {
-			try {
-				data = jsModule(data, filePath);
-			} catch (ex) {
-
-			}
-		}
-		return data;
 	});
 }
 
-fs.readFile(".jshintrc", (err, data) => {
-	// 读取.jshintrc配置文件
-	try {
-		jshintrc = JSON.parse(data);
-	} catch (ex) {
-		jshintrc = eval.call(null, "(" + data + ")");
-	}
-});
+function readJSON(path, callback) {
+	fs.readFile(path, (err, data) => {
+		// 读取.jshintrc配置文件
+		try {
+			data = JSON.parse(data);
+		} catch (ex) {
+			try {
+				data = eval.call(null, "(" + data + ")");
+			} catch (ex) {
+
+			}
+		}
+		callback(data || {});
+	});
+}
+
+var fsTimer;
+
+function saveMemFs() {
+	clearTimeout(fsTimer);
+	fsTimer = setTimeout(() => {
+		fs.writeFile("files.cache", JSON.stringify(memFs), (err) => {
+			if (!err) {
+				console.log("Memory file cache saved");
+			}
+		});
+	}, 3000);
+}
+
+readJSON(".jshintrc", (data) => jshintrc = data);
+
+readJSON("files.cache", (data) => memFs = data);
+
 
 app.use((req, res, next) => {
 
@@ -310,11 +362,18 @@ app.use((req, res, next) => {
 	var promise;
 	if (combo) {
 		// combo方式文件请求合并
-		promise = Promise.all(combo[2].split(/\s*,\s*/).map(filePath => readFile(url.parse(url.resolve(combo[1], filePath)).pathname)))
-			.then(files => files.join("\n"));
+		combo = combo[2].split(/\s*,\s*/).map(filePath => url.parse(url.resolve(combo[1], filePath)).pathname);
+		promise = Promise.all(combo.map(filePath => readFile(filePath)))
+			.then(files => files.join("\n")).then((data) => {
+				res.set("ETag", etag(combo.map(filePath => memFs[filePath].etag).join()));
+				return data;
+			});
 	} else if (/\.(?:js|css)$/.test(req.path)) {
 		// 普通的js、css操作
-		promise = readFile(req.path);
+		promise = readFile(req.path).then((data) => {
+			res.set("ETag", memFs[req.path].etag);
+			return data;
+		});
 	} else {
 		return next();
 	}
