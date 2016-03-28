@@ -19,7 +19,7 @@
 	var reParentPath = /[^\/]+\/\.\.\//g;
 	var location = window.location;
 	var baseURI = (document.baseURI || location.href).replace(/#.*$/, "");
-	var reAbsPath = RegExp("^" + baseURI.replace(/^((?:\w+\:)?\/\/+[^\/]+).*$/, "$1"));
+	var __filename = getCurrPath(1);
 	var rootModule = {
 		children: [],
 		filename: baseURI,
@@ -30,6 +30,7 @@
 	var resolve = function(path) {
 		return path;
 	};
+	var anonymousCount = 0;
 	var moduleCache = {
 		".": rootModule
 	};
@@ -55,49 +56,72 @@
 		}
 	}
 
-	var interactiveScript;
 	var currentlyAddingScript;
 
-	function getCurrentScript() {
+	/**
+	 * 获取当前正在运行的js的路径
+	 * @param  {Boolean} mustGet 获取不到当前js路径时，是否用文档中最后一个js的路径代替
+	 * @return {String} 绝对路径
+	 */
+	function getCurrPath(mustGet) {
 		if (currentlyAddingScript) {
-			return currentlyAddingScript;
+			return currentlyAddingScript.src;
 		}
 
-		var scripts = document.scripts || document.getElementsByTagName("script");
-		var lastScript;
+		var path;
+		try {
+			throw new Error("_");
+		} catch (e) {
+			try {
+				e.stack.replace(/(?:\bat\b|@).*?(\w+\:\/\/+.*?)(?:\:\d+){2,}/g, function(m, url) {
+					if (!path && url !== __filename) {
+						path = url;
+					}
+				});
+			} catch (ex) {
 
-		for (var i = scripts.length - 1; i >= 0; i--) {
-			var script = scripts[i];
-			if (script.src) {
-				if (script.readyState === "interactive") {
-					interactiveScript = script;
-					return interactiveScript;
-				}
-				if (!lastScript) {
-					lastScript = script;
-				}
 			}
 		}
-
-		return lastScript;
+		if (!path) {
+			var scripts = document.scripts || document.getElementsByTagName("script");
+			var lastScript;
+			for (var i = scripts.length - 1; i >= 0; i--) {
+				var script = scripts[i];
+				if (script.src) {
+					if (script.readyState === "interactive") {
+						return script.src;
+					}
+					if (mustGet && !lastScript) {
+						lastScript = script;
+					}
+				}
+			}
+			if (lastScript) {
+				path = lastScript.src;
+			}
+		}
+		return path;
 	}
 
 	// 为js模块提供module对象
 	function getModule(path) {
-		path = path || getCurrentScript().src;
+		if (path) {
+			path = pathAbs(path);
+		} else {
+			path = getCurrPath() || ".";
+		}
 
-		var id = pathRel(path);
-		var module = moduleCache[id];
+		var module = moduleCache[path];
 
 		if (!module) {
 			module = {
 				children: [],
-				filename: pathAbs(path),
-				id: id,
+				filename: path,
+				id: path,
 				loaded: false,
 				parent: rootModule
 			};
-			moduleCache[id] = module;
+			moduleCache[path] = module;
 			setParent(module, rootModule);
 		}
 
@@ -131,15 +155,10 @@
 		}
 
 		// 模块加载
-		function require(filename, callback) {
-			var argIsArray = Array.isArray(filename);
-			if (callback || argIsArray) {
-				return define(parent.id, argIsArray ? filename : [filename], callback || function() {});
-			}
-
-			var path = resolve(filename);
+		function require(filename) {
+			var path = pathAbs(resolve(filename));
 			if (path) {
-				var module = moduleCache[pathRel(path)];
+				var module = moduleCache[path];
 				var exports;
 
 				// 如果加载过，则从缓存中获取
@@ -222,18 +241,17 @@
 
 	function runFactory(module) {
 		if (typeof module[strFactory] === "function") {
-			var result;
 			var exports = {};
 			var require = getRequire(module);
 			var factory = module[strFactory];
 			var amd = factory.amd;
 			module.exports = exports;
-			var returnVal = factory.apply(window, (Array.isArray(amd) ? amd.map(require) : [require, exports, module]));
+			var returnVal = factory.apply(window, (amd && amd.length ? amd.map(require) : [require, exports, module]));
 			delete module[strFactory];
 			if (!changed(module.exports)) {
 				if (changed(exports)) {
 					module.exports = exports;
-				} else if (result != null) {
+				} else if (returnVal !== undefined) {
 					module.exports = returnVal;
 				}
 			}
@@ -258,7 +276,7 @@
 			}
 
 			// 去除服务器端自动包裹的define语句
-			response = response.replace(/^\s+[^\r\n\;]*?\bdefine\s*\([^\r\n\;]?\bfunction\(\s*require\s*,\s*exports\s*,\s*module\s*\)\s*\{([\s\S]+)\}\)\;\s*$/, "$1");
+			response = response.replace(/^[\s\n]*\(function\((\w+)\)\{typeof\s+define===?"function"\?define\([^\(\)]+?\b\1\):\1\(\)\}\)\(function\(require,exports,module\)\{\n((?:\n|.)+)\n\}\);[\s\n]*$/, "$2");
 			return response;
 		}
 	}
@@ -291,11 +309,7 @@
 		if (!/^\w+:\/+/.test(path)) {
 			path = resolve(pathJoin(baseURI, path));
 		}
-		return path.replace(reAbsPath, "");
-	}
-
-	function pathRel(path) {
-		return pathAbs(resolve(path)).replace(/^\w+\:\/\/+[^\/]+/, "");
+		return path;
 	}
 
 	// 去除数组中的空数据并去重
@@ -352,27 +366,28 @@
 		// 为直接加载的js提供module对象
 		defineProperty("module", getModule);
 	}
-
-	rootModule = getModule();
+	rootModule = getModule(__filename);
 	// var require = getRequire(module);
 	rootModule.exports = exports;
 
 	resolve = getRequire(rootModule).resolve;
 
-	function define(path, deps, factory) {
+	var isAmd;
+
+	function define(id, deps, factory) {
 		var argsLen = arguments.length;
 
 		// define(factory)
 		if (argsLen === 1) {
-			factory = path;
-			path = undefined;
+			factory = id;
+			id = undefined;
 		} else if (argsLen === 2) {
 			factory = deps;
 
 			// define(deps, factory)
-			if (Array.isArray(path)) {
-				deps = path;
-				path = undefined;
+			if (Array.isArray(id)) {
+				deps = id;
+				id = undefined;
 			}
 			// define(id, factory)
 			else {
@@ -380,11 +395,14 @@
 			}
 		}
 
-		var module = getModule(path);
+		var module = getModule(resolve(id || getCurrPath() || ("@anonymous" + anonymousCount++)));
+		if (id) {
+			module.id = id;
+		}
 		var require = getRequire(module);
 
 		if (typeof factory === "function") {
-			if (factory.amd) {
+			if (isAmd) {
 				// amd 模块的依赖声明与factory函数的参数一致，所以不要动它的依赖声明，直接记录下来
 				factory.amd = deps;
 			}
@@ -408,13 +426,18 @@
 		}
 
 		function run() {
-			if (module.parent === rootModule) {
+			var parent = module.parent;
+			if (parent === rootModule || parent.id === ".") {
 				runFactory(module);
 			}
 		}
+		isAmd = false;
 	}
 	window.define = define;
 	define.cmd = {};
+	define.useamd = function() {
+		return (isAmd = true);
+	};
 
 	// 加载模块与其所依赖模块
 	function loadDeps(module, workers) {
@@ -496,23 +519,28 @@
 	(function() {
 		var polyfillModules = [];
 
-		function polyfill(name, fileName) {
-			fileName = fileName || name;
-			if (!window[name]) {
-				polyfillModules.push(fileName);
-			}
-			define(name, function() {
-				return window[name];
+		function def(name) {
+			define(name, function(require, exports, module) {
+				module.exports = window[name] || name;
 			});
+		}
+
+		function polyfill(name, fileName) {
+			if (!window[name]) {
+				polyfillModules.push(fileName || name);
+			}
+			def(name);
 		}
 
 		polyfill("console");
 		polyfill("Promise", "es6-promise");
 		polyfill("JSON", "json2");
-		var a = [];
-		if (!(a.every && a.filter && a.forEach && a.map && a.some && a.sort && a.reduce && a.reduceRight && "".trim && open.bind)) {
+		var array = [];
+		if (!(array.every && array.filter && array.forEach && array.map && array.some && array.sort && array.reduce && array.reduceRight && "".trim && open.bind)) {
 			polyfillModules.push("es5-shim");
 		}
+		getModule().loaded = true;
+		def("es5-shim");
 		if (polyfillModules.length) {
 			getRequire()("polyfill/" + (polyfillModules.length > 1 ? "??" : "") + polyfillModules.join(".js,").toLowerCase() + ".js");
 		}
