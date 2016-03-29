@@ -6,6 +6,10 @@
 "use strict";
 // 判断是浏览器环境
 (function(window, undefined) {
+	var document = window.document;
+	var Object = window.Object;
+	var Array = window.Array;
+	var Function = window.Function;
 
 	// 兼容IE8，待稍后es5-shim.js加载之后，这段就不起作用了
 	if (!Array.isArray) {
@@ -14,7 +18,6 @@
 		};
 	}
 
-	var document = window.document;
 	// 路径拼接正则，父目录
 	var reParentPath = /[^\/]+\/\.\.\//g;
 	var location = window.location;
@@ -229,32 +232,89 @@
 		return exports;
 	}
 
-	function changed(obj) {
-		if (typeof obj === "object") {
-			for (var i in obj) {
-				return i || true;
-			}
-			return false;
-		}
-		return true;
-	}
-
 	function runFactory(module) {
+		var exports, rawExports, definedExpressMagic, hasChange;
+		/**
+		 * 判断exports相比最初的原始值(rawExports)，有无变化。
+		 * @param  newExports 要与之比较的变量，类型不限，默认与exports变量比较
+		 * @return {Boolean} exports是否发生了变化
+		 */
+		function exportsChanged(newExports) {
+			// 第二次调用exportsChanged函数时，会返回上次的值，不再重新计算
+			if (hasChange === undefined) {
+				newExports = arguments.length ? newExports : getExports();
+				// 如果变量已经不全等，说明一定在工厂函数运行期间被重新赋值了
+				if (newExports !== rawExports) {
+					hasChange = true;
+				} else {
+					// 原始exports对象为空对象，for语句一旦运行，说明其新增了属性
+					for (newExports in newExports) {
+						hasChange = true;
+						break;
+					}
+				}
+			}
+			return (hasChange = hasChange || false);
+		}
+
+		function setExports(value) {
+			exports = value;
+
+			// IE8及以下，不支持定义魔术方法，在这里检查一下module.exports和exports之间的差异，有差异则赋值一下
+			if (!definedExpressMagic && module.exports !== exports) {
+				module.exports = exports;
+			}
+		}
+
+		function getExports() {
+			return exports;
+		}
+
 		if (typeof module[strFactory] === "function") {
-			var exports = {};
+			// 注意这里的var语句会被js引擎
+			exports = {};
+			// rawExports用来记录最初的exports对象的原始赋值，以便过一会用来测试模块是否对其赋了新的值
+			rawExports = exports;
+
 			var require = getRequire(module);
 			var factory = module[strFactory];
 			var amd = factory.amd;
-			module.exports = exports;
+			amd = amd && amd.length ? amd : 0;
+
+			// 尝试使用defineProperty方式为module对象提供对exports的访问
+			definedExpressMagic = defineProperty("exports", {
+				set: setExports,
+				get: getExports,
+				enumerable: true
+			}, module);
+
 			var returnVal = factory.apply(window, (amd && amd.length ? amd.map(require) : [require, exports, module]));
 			delete module[strFactory];
-			if (!changed(module.exports)) {
-				if (changed(exports)) {
-					module.exports = exports;
-				} else if (returnVal !== undefined) {
-					module.exports = returnVal;
+			// AMD模块不适用exports和exports对象，所以获取其工厂函数返回值作为模块返回值
+			if (amd) {
+				setExports(returnVal);
+			} else {
+				// IE8及以下，不能成功为module对象提供对exports的魔术方法，这里检查一下，如果module.exports有个新的值，则手动调用set函数
+				if (!definedExpressMagic && exportsChanged(module.exports)) {
+					setExports(module.exports);
+				}
+
+				// 对于未严格遵守CommanJS规范，使用了return语句作为模块返回值的cmd模块，在这里将就他们，取工厂函数返回值作为模块返回值
+				if (!exportsChanged() && returnVal !== undefined) {
+					setExports(returnVal);
+				}
+
+				// 模块编译工具可能会将ES6的export和export default语句分别编译为exports=xxxx和module.exports=xxxx,下面要兼容这两种同时存在时的情况
+				// 这样做会牺牲es6的动态模块返回值特性，如果不希望这个结果，可以传递对象。或者换用system.js作为模块加载引擎
+				if (exports instanceof Object) {
+					for (var key in rawExports) {
+						if (!(key in exports)) {
+							exports[key] = rawExports[key];
+						}
+					}
 				}
 			}
+			return getExports();
 		}
 		return module.exports;
 	}
@@ -334,7 +394,6 @@
 		}
 	}
 
-
 	/**
 	 * 直接在一个对象上定义一个新属性，或者修改一个已经存在的属性
 	 * @param  {String} propertyName 需被定义或修改的属性名。
@@ -350,7 +409,7 @@
 		}
 		object = (object || window);
 		try {
-			Object.defineProperty(object, propertyName, descriptor);
+			return Object.defineProperty(object, propertyName, descriptor);
 		} catch (ex) {
 			object[propertyName] = descriptor.get();
 		}
@@ -366,12 +425,15 @@
 		// 为直接加载的js提供module对象
 		defineProperty("module", getModule);
 	}
+	rootModule.loaded = true;
 	rootModule = getModule(__filename);
 	// var require = getRequire(module);
 	rootModule.exports = exports;
+	rootModule.loaded = true;
 
 	resolve = getRequire(rootModule).resolve;
 
+	// 标记下一个马上要传入define方法的模块共产函数是否是amd规范的模块
 	var isAmd;
 
 	function define(id, deps, factory) {
@@ -402,6 +464,7 @@
 		var require = getRequire(module);
 
 		if (typeof factory === "function") {
+			// 如果外部的js模块曾尝试调用define.amd或define.useamd
 			if (isAmd) {
 				// amd 模块的依赖声明与factory函数的参数一致，所以不要动它的依赖声明，直接记录下来
 				factory.amd = deps;
@@ -412,11 +475,12 @@
 			module[strFactory] = factory;
 			module.loaded = true;
 			if (deps) {
-				// 根据依赖声明创建其子模块
+				// 根据依赖声明创建其子模块的module对象
 				deps.forEach(function(filename) {
 					var childModule = getModule(require.resolve(filename));
 					setParent(childModule, module);
 				});
+				// 立即加载这个模块
 				loadDeps(module).then(run);
 			} else {
 				run();
@@ -425,42 +489,67 @@
 			module.exports = factory;
 		}
 
+		// 此js模块所有的依赖关系加载完毕后的回调
 		function run() {
 			var parent = module.parent;
 			if (parent === rootModule || parent.id === ".") {
 				runFactory(module);
 			}
 		}
+
+		// 工厂函数已保存，将isAmd返回默认状态
 		isAmd = false;
 	}
 	window.define = define;
 	define.cmd = {};
-	define.useamd = function() {
-		return (isAmd = true);
-	};
+
+	/**
+	 * 对外界js的接口，让其对define函数说明，接下来传进来的工厂函数是amd规范的。
+	 * @return {Objet} 模拟define.amd返回空对象
+	 */
+	function useamd() {
+		return (isAmd = {});
+	}
+	define.useamd = useamd;
+
+	// 由于外界的js并不遵守我们的define.useamd()，所以将其用魔术方法绑定在define.amd
+	if (!defineProperty("amd", useamd, define)) {
+		// 低版本浏览器下定义define.amd失败，恢复原状；
+		delete define.amd;
+		isAmd = false;
+	}
 
 	// 加载模块与其所依赖模块
 	function loadDeps(module, workers) {
 		var promise;
+
+		// 建立所有模块的加载工作队列
 		workers = workers || {};
 		if (module.loaded) {
+			// 如果模块已经加载，则加载其所有子模块
 			promise = Promise.all(module.children.map(function(childModule) {
-				if (!workers[childModule.id]) {
+				// 如果workers中已有，则不再重复建立工作进程
+				if (!workers[childModule.filename]) {
+					// 加载子模块的子模块，并将工作进程信息传递给递归工作队列
 					return loadDeps(childModule, workers);
 				}
 			}));
 		} else {
-			promise = workers[module.id];
+			// 如果当前要加载的模块，已在工作队列，则将工作进程返回
+			promise = workers[module.filename];
 			if (!promise) {
 				// 先加载父模块，再加载其依赖
 				promise = new Promise(function(resolve, reject) {
+					// loadModule函数才是加载js模块的函数
 					loadModule(module).then(function() {
+						// 加载父模块后加载他的依赖关系
 						loadDeps(module, workers).then(resolve, reject);
 					}, reject);
 				})["catch"](function(e) {
-					console.error(e.target);
+					console.error(e.target.src);
 				});
-				workers[module.id] = promise;
+				// 将加载父模块这个工作加入工作队列
+				workers[module.filename] = promise;
 			}
 		}
 		return promise;

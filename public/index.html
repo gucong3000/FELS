@@ -11,5 +11,27 @@
 <script type="text/javascript" src="js/cssunits.js"></script>
 <script type="text/javascript" src="js/browser.js"></script>
 <script type="text/javascript" src="js/jquery.js"></script>
+<script>
+window.onload = function() {
+	workers = {}
 
+	function worker(module) {
+		if (workers[module.filename]) {
+			return;
+		}
+		workers[module.filename] = true;
+		var exports = module.exports;
+		if (module.id==="." || module.filename && module.loaded && exports !== undefined) {
+			if (typeof exports === "function") {
+				exports = String(exports).replace(/\{\n(.|\n)+$/, "{ … }");
+			}
+			console.log(module.filename, module.loaded, exports);
+		} else {
+			console.error(module);
+		}
+		module.children.forEach(worker);
+	}
+	worker(require.cache["."]);
+}
+</script>
 </html>
