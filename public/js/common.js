@@ -6,6 +6,10 @@
 "use strict";
 // 判断是浏览器环境
 (function(window, undefined) {
+	var XMLHttpRequest = window.XMLHttpRequest || window.ActiveXObject("Microsoft.XMLHTTP");
+	var console = window.console;
+	var Promise = window.Promise;
+	var JSON = window.JSON;
 	var document = window.document;
 	var Object = window.Object;
 	var Array = window.Array;
@@ -67,43 +71,50 @@
 	 * @return {String} 绝对路径
 	 */
 	function getCurrPath(mustGet) {
-		if (currentlyAddingScript) {
-			return currentlyAddingScript.src;
-		}
-
 		var path;
-		try {
-			throw new Error("_");
-		} catch (e) {
-			try {
-				e.stack.replace(/(?:\bat\b|@).*?(\w+\:\/\/+.*?)(?:\:\d+){2,}/g, function(m, url) {
-					if (!path && url !== __filename) {
-						path = url;
-					}
-				});
-			} catch (ex) {
-
-			}
+		if (currentlyAddingScript) {
+			path = currentlyAddingScript.src;
 		}
+
 		if (!path) {
-			var scripts = document.scripts || document.getElementsByTagName("script");
-			var lastScript;
-			for (var i = scripts.length - 1; i >= 0; i--) {
-				var script = scripts[i];
-				if (script.src) {
-					if (script.readyState === "interactive") {
-						return script.src;
-					}
-					if (mustGet && !lastScript) {
-						lastScript = script;
-					}
+			try {
+				throw new Error("_");
+			} catch (e) {
+				try {
+					e.stack.replace(/(?:\bat\b|@).*?(\w+\:\/\/+.*?)(?:\:\d+){2,}/g, function(m, url) {
+						if (!path && url !== __filename) {
+							path = url;
+						}
+					});
+				} catch (ex) {
+
 				}
 			}
-			if (lastScript) {
-				path = lastScript.src;
+
+			if (!path) {
+				var scripts = document.scripts || document.getElementsByTagName("script");
+				var lastScript;
+				for (var i = scripts.length - 1; i >= 0; i--) {
+					var script = scripts[i];
+					if (script.src) {
+						if (script.readyState === "interactive") {
+							path = script.src;
+							break;
+						}
+						if (mustGet && !lastScript) {
+							lastScript = script;
+						}
+					}
+				}
+				if (i < 0 && lastScript) {
+					path = lastScript.src;
+				}
 			}
+
 		}
-		return path;
+		if (path) {
+			return pathAbs(path);
+		}
 	}
 
 	// 为js模块提供module对象
@@ -168,7 +179,7 @@
 				if (module) {
 					if (module.loaded) {
 						setParent(module, parent);
-						return runFactory(module);
+						return runModule(module);
 					}
 				} else {
 					module = getModule(path);
@@ -232,6 +243,15 @@
 		return exports;
 	}
 
+
+	function runModule(module) {
+		if (typeof module[strFactory] === "function") {
+			return runFactory(module);
+		} else {
+			return module.exports;
+		}
+	}
+
 	function runFactory(module) {
 		var exports, rawExports, definedExpressMagic, hasChange;
 		/**
@@ -270,64 +290,77 @@
 			return exports;
 		}
 
-		if (typeof module[strFactory] === "function") {
-			// 注意这里的var语句会被js引擎
-			exports = {};
-			// rawExports用来记录最初的exports对象的原始赋值，以便过一会用来测试模块是否对其赋了新的值
-			rawExports = exports;
+		// 注意这里的var语句会被js引擎
+		exports = {};
+		// rawExports用来记录最初的exports对象的原始赋值，以便过一会用来测试模块是否对其赋了新的值
+		rawExports = exports;
 
-			var require = getRequire(module);
-			var factory = module[strFactory];
-			var amd = factory.amd;
-			amd = amd && amd.length ? amd : 0;
+		var require = getRequire(module);
+		var factory = module[strFactory];
+		var amd = factory.amd;
+		amd = amd && amd.length ? amd : 0;
 
-			// 尝试使用defineProperty方式为module对象提供对exports的访问
-			definedExpressMagic = defineProperty("exports", {
-				set: setExports,
-				get: getExports,
-				enumerable: true
-			}, module);
+		// 尝试使用defineProperty方式为module对象提供对exports的访问
+		definedExpressMagic = defineProperty("exports", {
+			set: setExports,
+			get: getExports,
+			enumerable: true
+		}, module);
 
-			var returnVal = factory.apply(window, (amd && amd.length ? amd.map(require) : [require, exports, module]));
-			delete module[strFactory];
-			// AMD模块不适用exports和exports对象，所以获取其工厂函数返回值作为模块返回值
-			if (amd) {
+		var returnVal = factory.apply(window, (amd && amd.length ? amd.map(require) : [require, exports, module]));
+		delete module[strFactory];
+		// AMD模块不适用exports和exports对象，所以获取其工厂函数返回值作为模块返回值
+		if (amd) {
+			setExports(returnVal);
+		} else {
+			// IE8及以下，不能成功为module对象提供对exports的魔术方法，这里检查一下，如果module.exports有个新的值，则手动调用set函数
+			if (!definedExpressMagic && exportsChanged(module.exports)) {
+				setExports(module.exports);
+			}
+
+			// 对于未严格遵守CommanJS规范，使用了return语句作为模块返回值的cmd模块，在这里将就他们，取工厂函数返回值作为模块返回值
+			if (!exportsChanged() && returnVal !== undefined) {
 				setExports(returnVal);
-			} else {
-				// IE8及以下，不能成功为module对象提供对exports的魔术方法，这里检查一下，如果module.exports有个新的值，则手动调用set函数
-				if (!definedExpressMagic && exportsChanged(module.exports)) {
-					setExports(module.exports);
-				}
+			}
 
-				// 对于未严格遵守CommanJS规范，使用了return语句作为模块返回值的cmd模块，在这里将就他们，取工厂函数返回值作为模块返回值
-				if (!exportsChanged() && returnVal !== undefined) {
-					setExports(returnVal);
-				}
-
-				// 模块编译工具可能会将ES6的export和export default语句分别编译为exports=xxxx和module.exports=xxxx,下面要兼容这两种同时存在时的情况
-				// 这样做会牺牲es6的动态模块返回值特性，如果不希望这个结果，可以传递对象。或者换用system.js作为模块加载引擎
-				if (exports instanceof Object) {
-					for (var key in rawExports) {
-						if (!(key in exports)) {
-							exports[key] = rawExports[key];
-						}
+			// 模块编译工具可能会将ES6的export和export default语句分别编译为exports=xxxx和module.exports=xxxx,下面要兼容这两种同时存在时的情况
+			// 这样做会牺牲es6的动态模块返回值特性，如果不希望这个结果，可以传递对象。或者换用system.js作为模块加载引擎
+			if (exports instanceof Object) {
+				for (var key in rawExports) {
+					if (!(key in exports)) {
+						exports[key] = rawExports[key];
 					}
 				}
 			}
-			return getExports();
 		}
-		return module.exports;
+		return getExports();
 	}
 
 	// 获取文件内容
-	function getFileText(path) {
-		var xhr = new window.XMLHttpRequest();
+	function getFileText(path, resolve, reject) {
+		var xhr = new XMLHttpRequest();
 		var response;
-		xhr.open("GET", path, false);
+		if (resolve) {
+			xhr.onreadystatechange = function() {
+				if (xhr.readyState === 4) {
+					if (statusOk()) {
+						resolve(getRes());
+					} else if (reject) {
+						reject(xhr);
+					}
+				}
+			};
+		}
+		xhr.open("GET", path, !!resolve);
 		xhr.setRequestHeader("X-Requested-With", "XMLHttpRequest");
 		xhr.send(null);
-		var status = xhr.status;
-		if (status >= 200 && status < 300 || status === 304) {
+
+		function statusOk() {
+			var status = xhr.status;
+			return status >= 200 && status < 300 || status === 304;
+		}
+
+		function getRes() {
 			response = xhr.responseText || xhr.response;
 			if (exports.plugins && exports.plugins.length) {
 				exports.plugins.forEach(function(plugin) {
@@ -337,8 +370,17 @@
 
 			// 去除服务器端自动包裹的define语句
 			response = response.replace(/^[\s\n]*\(function\((\w+)\)\{typeof\s+define===?"function"\?define\([^\(\)]+?\b\1\):\1\(\)\}\)\(function\(require,exports,module\)\{\n((?:\n|.)+)\n\}\);[\s\n]*$/, "$2");
-			return response;
+			return response || "";
 		}
+		if (!resolve && statusOk()) {
+			return getRes();
+		}
+	}
+
+	function promiseFileText(path) {
+		return new Promise(function(resolve, reject) {
+			getFileText(path, resolve, reject);
+		});
 	}
 
 	// 求引用路径
@@ -357,7 +399,9 @@
 			path = path.replace(/[^\/]*$/, filename);
 		}
 
+		// 处理"xxx/./xxx"
 		path = path.replace(/\/\.\//g, "/");
+		// 处理"xxx/../xxx"
 		while (reParentPath.test(path)) {
 			path = path.replace(reParentPath, "");
 		}
@@ -369,7 +413,7 @@
 		if (!/^\w+:\/+/.test(path)) {
 			path = resolve(pathJoin(baseURI, path));
 		}
-		return path;
+		return path.replace(/\?.*$/, "");
 	}
 
 	// 去除数组中的空数据并去重
@@ -456,8 +500,12 @@
 				deps = undefined;
 			}
 		}
+		var path = id ? resolve(id) : getCurrPath();
+		if (!path) {
+			path = resolve("@anonymous" + anonymousCount++);
+		}
 
-		var module = getModule(resolve(id || getCurrPath() || ("@anonymous" + anonymousCount++)));
+		var module = getModule(path);
 		if (id) {
 			module.id = id;
 		}
@@ -529,7 +577,7 @@
 			// 如果模块已经加载，则加载其所有子模块
 			promise = Promise.all(module.children.map(function(childModule) {
 				// 如果workers中已有，则不再重复建立工作进程
-				if (!workers[childModule.filename]) {
+				if (childModule !== rootModule && !workers[childModule.filename]) {
 					// 加载子模块的子模块，并将工作进程信息传递给递归工作队列
 					return loadDeps(childModule, workers);
 				}
@@ -564,44 +612,65 @@
 
 	function loadModule(childModule) {
 		var url = childModule.filename;
+		url = exports.map[url] || url;
+
 		var promise = urlCache[url];
 
 		if (!promise) {
-			promise = new Promise(function(resolve, reject) {
-				if (childModule.loaded) {
-					return resolve(childModule);
-				}
-				var parentNode = (document.body || document.documentElement.lastChild);
-				var script = document.createElement("script");
-				var done;
-				// Bind to load events
-				script.onreadystatechange = script.onload = function() {
-					if (!done && isFileReady(script.readyState)) {
-						// Set done to prevent this function from being called twice.
-						done = 1;
-						// Handle memory leak in IE
-						script.onload = script.onreadystatechange = script.onerror = null;
-						// Just run the callback
-						setTimeout(function() {
-							childModule.loaded = true;
-							delete urlCache[url];
-							resolve(childModule);
-						}, 0);
+			if (/\.js(\?|#|$)/.test(childModule.filename)) {
+				promise = new Promise(function(resolve, reject) {
+					if (childModule.loaded) {
+						return resolve(childModule);
 					}
-				};
-				script.onerror = function(e) {
-					// Don't call the callback again, so we mark it done
-					urlCache[url] = 0;
-					done = 1;
-					reject(e);
-				};
-				script.async = true;
-				script.src = url;
-				currentlyAddingScript = script;
-				parentNode.appendChild(script);
-				currentlyAddingScript = 0;
-			});
+					var parentNode = (document.body || document.documentElement.lastChild);
+					var script = document.createElement("script");
+					var done;
+					// Bind to load events
+					script.onreadystatechange = script.onload = function() {
+						if (!done && isFileReady(script.readyState)) {
+							// Set done to prevent this function from being called twice.
+							done = 1;
+							// Handle memory leak in IE
+							script.onload = script.onreadystatechange = script.onerror = null;
+							// Just run the callback
+							setTimeout(function() {
+								resolve(childModule);
+							}, 0);
+						}
+					};
+					script.onerror = function(e) {
+						// Don't call the callback again, so we mark it done
+						done = 1;
+						reject(e);
+					};
+					script.async = true;
+					script.src = url;
+					currentlyAddingScript = script;
+					parentNode.appendChild(script);
+					currentlyAddingScript = 0;
+				});
+			} else {
+				promise = promiseFileText(url).then(function(fileText) {
+					try {
+						// 尝试作为json数据解析
+						fileText = JSON.parse(fileText);
+					} catch (ex) {
+
+					}
+					childModule.exports = fileText;
+					return childModule;
+				});
+			}
+
 			urlCache[url] = promise;
+			promise.then(function(childModule) {
+				childModule.loaded = true;
+				delete urlCache[url];
+				return childModule;
+			})["catch"](function(ex) {
+				delete urlCache[url];
+				throw (ex);
+			});
 		}
 		return promise;
 	}
@@ -631,7 +700,20 @@
 		getModule().loaded = true;
 		def("es5-shim");
 		if (polyfillModules.length) {
-			getRequire()("polyfill/" + (polyfillModules.length > 1 ? "??" : "") + polyfillModules.join(".js,").toLowerCase() + ".js");
+			getRequire(rootModule)("polyfill/" + (polyfillModules.length > 1 ? "??" : "") + polyfillModules.join(".js,").toLowerCase() + ".js");
+			console = console || window.console;
+			Promise = Promise || window.Promise;
+			JSON = JSON || window.JSON;
+		}
+	})();
+
+	(function() {
+		// 出现在本文件的任何require语句都应该由node动态输出内容
+		var fileVer = require("filever.json");
+		for (var file in fileVer) {
+			var hash = fileVer[file];
+			file = resolve(file);
+			exports.map[file] = file + "?" + hash;
 		}
 	})();
 

@@ -1,5 +1,6 @@
 # CommonJS
-模拟CommonJS规范
+
+模块加载引擎的新轮子
 
 ## 启动
 
