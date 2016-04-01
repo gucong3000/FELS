@@ -170,6 +170,9 @@
 
 		// 模块加载
 		function require(filename) {
+			if (window[filename]) {
+				return window[filename];
+			}
 			var path = pathAbs(resolve(filename));
 			if (path) {
 				var module = moduleCache[path];
@@ -469,7 +472,7 @@
 		// 为直接加载的js提供module对象
 		defineProperty("module", getModule);
 	}
-	rootModule.loaded = true;
+
 	rootModule = getModule(__filename);
 	// var require = getRequire(module);
 	rootModule.exports = exports;
@@ -677,17 +680,10 @@
 	(function() {
 		var polyfillModules = [];
 
-		function def(name) {
-			define(name, function(require, exports, module) {
-				module.exports = window[name] || name;
-			});
-		}
-
 		function polyfill(name, fileName) {
 			if (!window[name]) {
 				polyfillModules.push(fileName || name);
 			}
-			def(name);
 		}
 
 		polyfill("console");
@@ -697,8 +693,11 @@
 		if (!(array.every && array.filter && array.forEach && array.map && array.some && array.sort && array.reduce && array.reduceRight && "".trim && open.bind)) {
 			polyfillModules.push("es5-shim");
 		}
-		getModule().loaded = true;
-		def("es5-shim");
+
+		define("es5-shim", function(require, exports, module) {
+			module.exports = "es5-shim";
+		});
+
 		if (polyfillModules.length) {
 			getRequire(rootModule)("polyfill/" + (polyfillModules.length > 1 ? "??" : "") + polyfillModules.join(".js,").toLowerCase() + ".js");
 			console = console || window.console;
