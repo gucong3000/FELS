@@ -6,6 +6,7 @@
 		"**/browser.js",
 		"**/jquery.js",
 		"**/jquery-1.*.js",
-		"**/jquery-2.*.js"
+		"**/jquery-2.*.js",
+		"**/polyfill/**/*"
 	]
 }

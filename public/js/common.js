@@ -416,7 +416,7 @@
 		if (!/^\w+:\/+/.test(path)) {
 			path = resolve(pathJoin(baseURI, path));
 		}
-		return path.replace(/\?.*$/, "");
+		return path.replace(/([^\?]+)\?[^\?]+.*$/, "$1");
 	}
 
 	// 去除数组中的空数据并去重
@@ -687,6 +687,9 @@
 		}
 
 		polyfill("console");
+		if (window.FileReader) {
+			polyfill("fetch");
+		}
 		polyfill("Promise", "es6-promise");
 		polyfill("JSON", "json2");
 		var array = [];

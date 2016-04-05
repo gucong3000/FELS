@@ -1,9 +1,11 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html>
 <head>
-	<meta charset="UTF-8">
-	<title>Document</title>
-	<script type="text/javascript" src="js/common.js"></script>
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+<meta name="renderer" content="webkit">
+<meta charset="utf-8">
+<title>Document</title>
+<script type="text/javascript" src="js/common.js"></script>
 </head>
 <body>
 <script type="text/javascript" src="js/cssunits.js"></script>
@@ -25,7 +27,7 @@ window.onload = function() {
 			}
 			console.log(module.filename, module.loaded, exports);
 		} else {
-			console.error(module);
+			console.error(module.filename);
 		}
 		module.children.forEach(worker);
 	}

@@ -36,6 +36,7 @@ app.use((req, res, next) => {
 		combo = combo[2].split(/\s*,\s*/).map(filePath => url.parse(url.resolve(combo[1], filePath)).pathname);
 		promise = Promise.all(combo.map(filePath => gulp(filePath)))
 			.then((files) => {
+				files = files.filter(file => file);
 				return {
 					etag: files.map(file => file.etag || "").join(","),
 					contents: files.map(file => file.contents).join("\n")

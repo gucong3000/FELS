@@ -144,7 +144,7 @@ function jsPipe(stream) {
 function cssPipe(stream) {
 	var processors = [
 		// scss风格的预处理器
-		require("precss")(),
+		// require("precss")(),
 		// css未来标准提前使用
 		require("cssnext")(),
 		// 浏览器私有属性前缀添加
