@@ -142,23 +142,41 @@ function jsPipe(stream) {
 }
 
 function cssPipe(stream) {
-	var postcss = require("gulp-postcss");
-	var cssnext = require("cssnext");
-	var autoprefixer = require("autoprefixer");
-	var cssgrace = require("cssgrace");
-
 	var processors = [
-		cssnext,
-		cssgrace,
-		autoprefixer({
+		// scss风格的预处理器
+		require("precss")(),
+		// css未来标准提前使用
+		require("cssnext")(),
+		// 浏览器私有属性前缀添加
+		require("autoprefixer")({
 			browsers: ["last 3 version", "ie > 8", "Android >= 3", "Safari >= 5.1", "iOS >= 5"]
 		}),
+		// IE8期以下兼容rem
+		require("pixrem"),
+		// IE9兼容vmin
+		require("postcss-vmin"),
+		// IE8以下兼容合集
+		require("cssgrace"),
+		// background: linear-gradient(to bottom, #1e5799, #7db9e8);输出为IE滤镜
+		require("postcss-filter-gradient"),
+		// 静态资源版本控制
+		require("postcss-url")({
+			useHash: true,
+			url: "copy" // or "inline" or "copy"
+		}),
 	];
-	stream = stream.pipe(postcss(processors));
+
+	// 过滤掉空的
+	processors = processors.filter(function(processor) {
+		return processor;
+	});
+	stream = stream.pipe(require("gulp-postcss")(processors));
+
 	if (!isDev) {
 		// css压缩
 		stream = stream.pipe(require("gulp-minify-css")());
 	}
+
 	return stream;
 }
 
@@ -185,9 +203,7 @@ module.exports = (staticRoot, env) => {
 		if (sendFileCache[filePath]) {
 			// 如果外部请求的文件正好缓存中有，则发送出去，然后清除缓存中的此文件
 			// sourceMap之类情况就是这样，上次请求js时生成的map文件放在缓存中，浏览器下次来取
-			return new Promise((resolve) => {
-				resolve(sendFileCache[filePath]);
-			});
+			return Promise.resolve(sendFileCache[filePath]);
 		} else if (/[\.\-]min\.\w+$/.test(filePath)) {
 			// 已压缩文件，不作处理
 			return;
