@@ -50,6 +50,30 @@ function getFile(callback) {
 	});
 }
 
+// Stylelint config rules
+var stylelintConfig = {
+	"rules": {
+		"block-no-empty": true,
+		"color-no-invalid-hex": true,
+		"declaration-colon-space-after": "always",
+		"declaration-colon-space-before": "never",
+		"function-comma-space-after": "always",
+		"function-url-quotes": "double",
+		"media-feature-colon-space-after": "always",
+		"media-feature-colon-space-before": "never",
+		"media-feature-name-no-vendor-prefix": true,
+		"max-empty-lines": 5,
+		"number-leading-zero": "never",
+		"number-no-trailing-zeros": true,
+		"property-no-vendor-prefix": true,
+		"selector-list-comma-space-before": "never",
+		"selector-list-comma-newline-after": "always",
+		"selector-no-id": true,
+		"string-quotes": "double",
+		"value-no-vendor-prefix": true
+	}
+};
+
 var jsModule = getFile((content, file) => {
 	// 模块加载器、非js模块普通文件，cmd规范模块，不作处理
 	if (/\/common(?:\Wmin)?\.js$/.test(file.path) || !/\b(?:define\(|module|exports|require\()\b/.test(content) || /\bdefine\.cmd\b/.test(content)) {
@@ -221,15 +245,11 @@ function jsPipe(stream) {
 
 function cssPipe(stream) {
 	var processors = [
-		isDev ? require("stylelint") : null,
+		isDev ? require("stylelint")(stylelintConfig) : null,
 		// scss风格的预处理器
 		// require("precss")(),
 		// css未来标准提前使用
-		require("cssnext")(),
-		// 浏览器私有属性前缀添加
-		require("autoprefixer")({
-			browsers: ["last 3 version", "ie > 8", "Android >= 3", "Safari >= 5.1", "iOS >= 5"]
-		}),
+		// require("cssnext")(),
 		// IE8期以下兼容rem
 		require("pixrem"),
 		// IE9兼容vmin
@@ -243,7 +263,14 @@ function cssPipe(stream) {
 			useHash: true,
 			url: "copy" // or "inline" or "copy"
 		}),
+		// 浏览器私有属性前缀添加
+		require("autoprefixer")({
+			browsers: ["last 3 version", "ie > 8", "Android >= 3", "Safari >= 5.1", "iOS >= 5"]
+		}),
 		isDev ? require("postcss-browser-reporter") : null,
+		isDev ? require("postcss-reporter")({
+			clearMessages: true
+		}) : null,
 	];
 
 	// 过滤掉空的postcss插件
