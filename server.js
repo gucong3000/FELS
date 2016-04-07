@@ -5,7 +5,8 @@ var express = require("express");
 var url = require("url");
 var app = express();
 var serveIndex = require("serve-index");
-const staticRoot = "public";
+var cwd = process.cwd();
+const staticRoot = __dirname === cwd ? "public" : cwd;
 var logger = require("morgan");
 var bodyParser = require("body-parser");
 var cookieParser = require("cookie-parser");
@@ -26,6 +27,10 @@ app.set("etag", "strong");
 
 var gulp = require("./gulpfile")(staticRoot, app.get("env"));
 
+function readFileByGulp(filePath){
+	return gulp(filePath);
+}
+
 // 将文件请求转发给gulp
 app.use((req, res, next) => {
 
@@ -34,7 +39,7 @@ app.use((req, res, next) => {
 	if (combo) {
 		// combo方式文件请求合并
 		combo = combo[2].split(/\s*,\s*/).map(filePath => url.parse(url.resolve(combo[1], filePath)).pathname);
-		promise = Promise.all(combo.map(filePath => gulp(filePath)))
+		promise = Promise.all(combo.map(readFileByGulp))
 			.then((files) => {
 				files = files.filter(file => file);
 				return {
@@ -44,7 +49,7 @@ app.use((req, res, next) => {
 			});
 	} else {
 		// 普通的js、css操作
-		promise = gulp(req.path);
+		promise = readFileByGulp(req.path);
 	}
 
 	if (promise) {
@@ -313,6 +318,8 @@ ${ isDev ? err.stack : err.message }
 	 */
 
 	function onListening() {
-		console.log("This process is pid " + process.pid + ".\nListening on " + port);
+		console.log(`This process is pid ${ process.pid }.
+Listening on ${ port }
+${ app.get("env") }`);
 	}
 })();

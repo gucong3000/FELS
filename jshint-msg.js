@@ -138,7 +138,7 @@ var msg = {
     "The '{a}' key may produce unexpected results.": "'{a}'键可能会产生意外的结果",
     "The '{a}' option cannot be set after any executable code.": "在选项'{a}'后无法设置任何可执行代码",
     "The '{a}' option is only available when linting ECMAScript {b} code.": "选项'{a}'仅可在ECMAScript {b}代码代码中使用",
-    "The '{a}' property is deprecated.": "'{a}'属性是不推荐的",
+    "The '{a}' property is deprecated.": "'{a}'属性使用了禁用的写法",
     "The array literal notation [] is preferable.": "数组应使用[]表示",
     "The body of a for in should be wrapped in an if statement to filter unwanted properties from the prototype.": "for in的循环体内部，应该包裹一个if判断语句，用以过滤掉从原型中继承的成员",
     "The Function constructor is a form of eval.": "Function的构造函数是eval的另一种形式",

@@ -81,7 +81,7 @@
 				throw new Error("_");
 			} catch (e) {
 				try {
-					e.stack.replace(/(?:\bat\b|@).*?(\w+\:\/\/+.*?)(?:\:\d+){2,}/g, function(m, url) {
+					e.stack.replace(/(?:\bat\b|@).*?(\b\w+\:\/{2,}.*?)(?:\:\d+){2,}/g, function(m, url) {
 						if (!path && url !== __filename) {
 							path = url;
 						}
@@ -100,8 +100,7 @@
 						if (script.readyState === "interactive") {
 							path = script.src;
 							break;
-						}
-						if (mustGet && !lastScript) {
+						} else if (mustGet && !lastScript) {
 							lastScript = script;
 						}
 					}
@@ -390,10 +389,10 @@
 	function pathJoin(path, filename) {
 		if (/^\/[^/]+/.test(filename)) {
 			// "/foo/bar/filename.js"
-			path = path.replace(/^((?:\w+\:)?\/\/+[^\/]+)?.*$/, "$1" + filename);
+			path = path.replace(/^((?:\w+\:)?\/{2,}[^\/]+)?.*$/, "$1" + filename);
 		} else if (/^\/\/+/.test(filename)) {
 			// "//google.com/filename.js"
-			path = path.replace(/^(?:(\w+\:)?\/\/+[^\/]+)?.*$/, "$1" + filename);
+			path = path.replace(/^(?:(\w+\:)?\/{2,}[^\/]+)?.*$/, "$1" + filename);
 		} else if (/\w+\:\/\/+/.test(filename)) {
 			// "http://google.com/filename.js"
 			path = filename;

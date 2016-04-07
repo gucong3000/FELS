@@ -96,6 +96,80 @@ ${ content }
 	return content;
 });
 
+/**
+ * 代码错误汇报函数，在浏览器中运行，用于将jshinit收集到的报出的错误信息在浏览器控制台中弹出
+ * 注意！！此函数将被toString()后发送到浏览器，并非在node下运行！！
+ * @param  {Array} errors 二维数组，里面的维度，[0]是错误消息，[1]是行号，[2]是列号
+ * @param  {String} path    文件的路径，可以是js模块路径
+ */
+function jsBrowserReporter(errors, path) {
+	var uri;
+	try {
+		throw new Error("_");
+	} catch (e) {
+		try {
+			e.stack.replace(/(?:\bat\b|@).*?(\b\w+\:\/{2,}.*?)(?:\:\d+){2,}/, function(m, url) {
+				uri = url;
+			});
+		} catch (ex) {
+
+		}
+	}
+
+	// 获取js文件当前路径
+	if (uri) {
+		// 延迟运行，以免干扰js正常运行流程
+		setTimeout(function() {
+			// 将文件路径与模块路径拼接为完整的url
+			uri = uri.replace(/^((?:\w+\:)?\/{2,}[^\/]+)?.*$/, "$1" + path);
+			var unshowMsg = "";
+			errors.forEach(window.Error && "fileName" in Error.prototype ? function(err) {
+				// 方式一：new Error，对error的属性赋值，然后throw
+				var errorObj;
+				try {
+					errorObj = new SyntaxError(err[0]);
+				} catch (ex) {
+					errorObj = new Error(err[0]);
+				}
+				errorObj.columnNumber = err[2];
+				errorObj.fileName = uri;
+				errorObj.lineNumber = err[1];
+				errorObj.message = err[0];
+				setTimeout(function() {
+					throw errorObj;
+				}, 0);
+
+			} : function(err) {
+				// 方式二：console.error方式汇报错误
+				err = ("SyntaxError: [0]\n\tat (" + uri + ":[1]:[2])").replace(/\[\s*(\d+)\s*\]/g, function(s, key) {
+					return err[+key] || s;
+				});
+
+				try {
+					// 如果你追踪错误提示来找到这一行，说明你来错误了地方，请按控制台中提示的位置去寻找代码。
+					console.warn(err);
+				} catch (ex) {
+					try {
+						// 如果你追踪错误提示来找到这一行，说明你来错误了地方，请按控制台中提示的位置去寻找代码。
+						console.error(err);
+					} catch (ex) {
+						try {
+							console.log(err);
+						} catch (ex) {
+							unshowMsg += err + "\n";
+						}
+					}
+				}
+			});
+			// 不支持console.error的浏览器，用alert弹出错误
+			if (unshowMsg) {
+				/* global alert */
+				alert(unshowMsg);
+			}
+		}, 200);
+	}
+}
+
 function jsPipe(stream) {
 	var sourcemaps;
 	if (isDev) {
@@ -103,39 +177,43 @@ function jsPipe(stream) {
 		var jshint = require("gulp-jshint");
 
 		require("./jshint-msg");
-		stream = stream.pipe(jshint())
-			.pipe(getFile(function(js, file) {
-				if (file.jshint && !file.jshint.success && !file.jshint.ignored) {
-					var err = new Error(file.jshint.results.map(function(result) {
-						return "\n[L" + result.error.line + ":C" + result.error.character + "]\t" + result.error.reason + "\n\t" + result.error.evidence;
-					}).join(""), file.path);
-					err.name = "js代码检查错误";
-					// http://jslinterrors.com/api/
-					// http://api.jslinterrors.com/explain?message=Bad%20assignment&format=md
-					throw err;
-				}
-			}));
+		stream = stream.pipe(jshint());
 	} else {
 		sourcemaps = require("gulp-sourcemaps");
-		stream = stream.pipe(sourcemaps.init());
+		stream = stream.pipe(sourcemaps.init())
+			// js代码压缩
+			.pipe(require("gulp-uglify")(uglifyOpt));
 	}
 	// 兼容ES6
-	stream = stream.pipe(require("gulp-babel")())
-		// 解决压缩js会破坏AngularJS文件所需的依赖注入问题
-		.pipe(require("gulp-ng-annotate")());
-	// js代码压缩
-	if (!isDev) {
-		stream = stream.pipe(require("gulp-uglify")(uglifyOpt));
-	}
+	// stream = stream.pipe(require("gulp-babel")())
+
+	// 解决压缩js会破坏AngularJS文件所需的依赖注入问题
+	// .pipe(require("gulp-ng-annotate")());
 
 	// AMD、CDM模块封装
 	stream = stream.pipe(getFile(function(contents, file) {
 		if (!/\bdefine\(/.test(contents) && (/\brequire\(/.test(contents) || /\bmodule|exports\b/.test(contents))) {
-			return "(function(f){typeof define===\"function\"?define(\"/" + path.relative(file.base, file.path).replace(/\\/g, "/") + "\",f):f()})(function(require,exports,module){\n" + contents.trim() + "\n});";
+			file.moduleWrapLineNumber = 1;
+			return "(function(f){typeof define===\"function\"?define(\"/" + path.relative(file.base, file.path).replace(/\\/g, "/") + "\",f):f()})(function(require,exports,module){\n" + contents + "\n});";
 		}
 	}));
 
-	if (sourcemaps) {
+	if (isDev) {
+		// jshint错误汇报
+		stream = stream.pipe(getFile(function(js, file) {
+			var lineCount = js.replace(/\/\*(?:.|\n)+?\*\//g, "").replace(/\n+/g, "\n").trim().match(/\n/g);
+			if (lineCount && lineCount.length > 3 && file.jshint && !file.jshint.success && !file.jshint.ignored && !/[\\/]jquery(?:-\d.*?)?(?:[-\.]min)?.js$/.test(file.path)) {
+				var uri = JSON.stringify("/" + path.relative(file.base, file.path).replace(/\\/g, "/"));
+				console.log(file.moduleWrapLineNumber);
+				var errors = JSON.stringify(file.jshint.results.map(result => [result.error.reason, result.error.line + (file.moduleWrapLineNumber || 0), result.error.character]));
+				var reporter = jsBrowserReporter.toString().replace(/^(function)\s*\w+/, "$1");
+				return `${ js }
+(${ reporter })(${ errors }, ${ uri })
+`;
+			}
+		}));
+	} else {
+		// 输出sourcemaps
 		stream = stream.pipe(sourcemaps.write("."));
 	}
 	return stream;
@@ -143,6 +221,7 @@ function jsPipe(stream) {
 
 function cssPipe(stream) {
 	var processors = [
+		isDev ? require("stylelint") : null,
 		// scss风格的预处理器
 		// require("precss")(),
 		// css未来标准提前使用
@@ -164,17 +243,17 @@ function cssPipe(stream) {
 			useHash: true,
 			url: "copy" // or "inline" or "copy"
 		}),
+		isDev ? require("postcss-browser-reporter") : null,
 	];
 
-	// 过滤掉空的
-	processors = processors.filter(function(processor) {
-		return processor;
-	});
+	// 过滤掉空的postcss插件
+	processors = processors.filter(processor => processor);
+
 	stream = stream.pipe(require("gulp-postcss")(processors));
 
 	if (!isDev) {
 		// css压缩
-		stream = stream.pipe(require("gulp-minify-css")());
+		stream = stream.pipe(require("gulp-clean-css")());
 	}
 
 	return stream;
