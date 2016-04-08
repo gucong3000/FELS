@@ -75,8 +75,8 @@ app.use((req, res, next) => {
 if (app.get("env") === "development") {
 	// 将所有*.jumei.com的访问请求重定向到*.jumeicd
 	app.use((req, res, next) => {
-		if (/^(.*?)\bjumei.com$/.test(req.hostname)) {
-			res.redirect(`http://${RegExp.$1}.jumeicd.com${ req.path }`);
+		if (/^(.*?)\.jumei\.com$/.test(req.hostname)) {
+			res.redirect(`http://${RegExp.$1}.jumeicd.com${ req.originalUrl }`);
 		} else {
 			next();
 		}

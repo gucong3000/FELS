@@ -164,24 +164,20 @@ function jsBrowserReporter(errors, path) {
 				}, 0);
 
 			} : function(err) {
-				// 方式二：console.error方式汇报错误
+				// 方式二：console.warn方式汇报错误
 				err = ("SyntaxError: [0]\n\tat (" + uri + ":[1]:[2])").replace(/\[\s*(\d+)\s*\]/g, function(s, key) {
 					return err[+key] || s;
 				});
 
 				try {
 					// 如果你追踪错误提示来找到这一行，说明你来错误了地方，请按控制台中提示的位置去寻找代码。
-					console.warn(err);
+					console.error(err);
 				} catch (ex) {
 					try {
-						// 如果你追踪错误提示来找到这一行，说明你来错误了地方，请按控制台中提示的位置去寻找代码。
-						console.error(err);
+						console.log(err);
 					} catch (ex) {
-						try {
-							console.log(err);
-						} catch (ex) {
-							unshowMsg += err + "\n";
-						}
+						// 不支持console的浏览器中，记录下消息，稍后alert
+						unshowMsg += err + "\n";
 					}
 				}
 			});
@@ -216,9 +212,11 @@ function jsPipe(stream) {
 
 	// AMD、CDM模块封装
 	stream = stream.pipe(getFile(function(contents, file) {
-		if (!/\bdefine\(/.test(contents) && (/\brequire\(/.test(contents) || /\bmodule|exports\b/.test(contents))) {
+		if (!/\bdefine\(/i.test(contents) && (/\brequire\(/i.test(contents) || /(?:\bmodule|exports)\s*=[^=]/i.test(contents))) {
 			file.moduleWrapLineNumber = 1;
-			return "(function(f){typeof define===\"function\"?define(\"/" + path.relative(file.base, file.path).replace(/\\/g, "/") + "\",f):f()})(function(require,exports,module){\n" + contents + "\n});";
+			return `(function(f){typeof define==="function"?define("/${ file.relative.replace(/\\/g, "/") }",f):f()})(function(require,exports,module){${
+contents
+}});`;
 		}
 	}));
 
@@ -227,7 +225,7 @@ function jsPipe(stream) {
 		stream = stream.pipe(getFile(function(js, file) {
 			var lineCount = js.replace(/\/\*(?:.|\n)+?\*\//g, "").replace(/\n+/g, "\n").trim().match(/\n/g);
 			if (lineCount && lineCount.length > 3 && file.jshint && !file.jshint.success && !file.jshint.ignored && !/[\\/]jquery(?:-\d.*?)?(?:[-\.]min)?.js$/.test(file.path)) {
-				var uri = JSON.stringify("/" + path.relative(file.base, file.path).replace(/\\/g, "/"));
+				var uri = JSON.stringify("/" + file.relative.replace(/\\/g, "/"));
 				console.log(file.moduleWrapLineNumber);
 				var errors = JSON.stringify(file.jshint.results.map(result => [result.error.reason, result.error.line + (file.moduleWrapLineNumber || 0), result.error.character]));
 				var reporter = jsBrowserReporter.toString().replace(/^(function)\s*\w+/, "$1");
@@ -246,16 +244,16 @@ function jsPipe(stream) {
 function cssPipe(stream) {
 	var processors = [
 		isDev ? require("stylelint")(stylelintConfig) : null,
-		// scss风格的预处理器
-		// require("precss")(),
 		// css未来标准提前使用
-		// require("cssnext")(),
+		require("cssnext")(),
+		// scss风格的预处理器
+		require("precss")(),
 		// IE8期以下兼容rem
 		require("pixrem"),
 		// IE9兼容vmin
 		require("postcss-vmin"),
 		// IE8以下兼容合集
-		require("cssgrace"),
+		// require("cssgrace"),
 		// background: linear-gradient(to bottom, #1e5799, #7db9e8);输出为IE滤镜
 		require("postcss-filter-gradient"),
 		// 静态资源版本控制
@@ -267,7 +265,6 @@ function cssPipe(stream) {
 		require("autoprefixer")({
 			browsers: ["last 3 version", "ie > 8", "Android >= 3", "Safari >= 5.1", "iOS >= 5"]
 		}),
-		isDev ? require("postcss-browser-reporter") : null,
 		isDev ? require("postcss-reporter")({
 			clearMessages: true
 		}) : null,
