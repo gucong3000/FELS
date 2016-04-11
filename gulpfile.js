@@ -218,7 +218,6 @@ function jsBrowserReporter(errors, path) {
 }
 
 function jsPipe(stream) {
-	var sourcemaps;
 	if (isDev) {
 		// js 代码风格检查
 		var jshint = require("gulp-jshint");
@@ -226,10 +225,10 @@ function jsPipe(stream) {
 		require("./jshint-msg");
 		stream = stream.pipe(jshint());
 	} else {
-		sourcemaps = require("gulp-sourcemaps");
-		stream = stream.pipe(sourcemaps.init())
-			// js代码压缩
-			.pipe(require("gulp-uglify")(uglifyOpt));
+		stream = stream.pipe(require("gulp-sourcemaps").init())
+
+		// js代码压缩
+		.pipe(require("gulp-uglify")(uglifyOpt));
 	}
 	// 兼容ES6
 	// stream = stream.pipe(require("gulp-babel")())
@@ -260,40 +259,33 @@ contents
 `;
 			}
 		}));
-	} else {
-		// 输出sourcemaps
-		stream = stream.pipe(sourcemaps.write("."));
 	}
 	return stream;
 }
 
 /* CSS代码美化 */
 function csscomb(stream) {
-	if (isDev) {
+	return stream.pipe(getFile(function(css, file) {
+		var Comb = require("csscomb");
+		var configPath = Comb.getCustomConfigPath(path.join(path.dirname(file.base), ".csscomb.json"));
+		var config = Comb.getCustomConfig(configPath);
+		var comb = new Comb(config || "csscomb");
+		var syntax = file.path.split(".").pop();
+		var newCss;
 
-		return stream.pipe(getFile(function(css, file) {
-			var Comb = require("csscomb");
-			var configPath = Comb.getCustomConfigPath(path.join(path.dirname(file.base), ".csscomb.json"));
-			var config = Comb.getCustomConfig(configPath);
-			var comb = new Comb(config || "csscomb");
-			var syntax = file.path.split(".").pop();
-			var newCss;
+		try {
+			newCss = comb.processString(file.contents.toString(), {
+				syntax: syntax,
+				filename: file.path
+			});
+		} catch (err) {
 
-			try {
-				newCss = comb.processString(file.contents.toString(), {
-					syntax: syntax,
-					filename: file.path
-				});
-			} catch (err) {
-
-			}
-			if (newCss && newCss !== css) {
-				fs.writeFileSync(file.path, newCss);
-				return newCss;
-			}
-		}));
-	}
-	return stream;
+		}
+		if (newCss && newCss !== css) {
+			fs.writeFileSync(file.path, newCss);
+			return newCss;
+		}
+	}));
 }
 
 function cssPipe(stream) {
@@ -328,7 +320,11 @@ function cssPipe(stream) {
 		}) : null,
 	];
 
-	stream = csscomb(stream);
+	if (isDev) {
+		stream = csscomb(stream);
+	} else {
+		stream = stream.pipe(require("gulp-sourcemaps").init());
+	}
 
 	// 过滤掉空的postcss插件
 	processors = processors.filter(processor => processor);
@@ -352,11 +348,28 @@ module.exports = (staticRoot, env) => {
 	isDev = env === "development";
 
 	staticRoot = staticRoot || process.cwd();
-	var gulpOpts = {
-		base: staticRoot
-	};
 
 	var sendFileCache = {};
+
+	function getSourceMap(file) {
+		if (file.sourceMap && !/\bsourceMappingURL=[^\n]+\.map\b/.test(file.contents)) {
+
+			file.sourceMap.sourceRoot = "//view-source/";
+			var sourceMap = JSON.stringify(file.sourceMap),
+				sourceMapPath = file.path + ".map",
+				url = sourceMapPath.replace(/^.*[\/\\]/, "");
+
+			sendFileCache[sourceMapPath] = new gutil.File({
+				cwd: file.cwd,
+				base: file.base,
+				path: sourceMapPath,
+				contents: new Buffer(sourceMap)
+			});
+			return /\.js$/.test(file.path) ? "\n//# sourceMappingURL=" + url + "\n" : "\n/*# sourceMappingURL=" + url + " */\n";
+		}
+		return "";
+	}
+
 
 	function sendFile(filePath) {
 		function string_src(filename, buffer) {
@@ -406,17 +419,19 @@ module.exports = (staticRoot, env) => {
 		}).then(data => {
 			return new Promise((resolve, reject) => {
 				var stream = string_src(filePath, data)
-					// 错误汇报机制
-					.pipe(plumber(ex => {
-						delete cache.caches[filePath][filePath];
-						remember.forget(filePath, filePath);
-						reject(ex);
-					}))
-					// 仅仅传递变化了的文件
-					.pipe(cache(filePath));
+
+				// 错误汇报机制
+				.pipe(plumber(ex => {
+					reject(ex);
+					delete cache.caches[filePath][filePath];
+					remember.forget(filePath, filePath);
+				}))
+
+				// 仅仅传递变化了的文件
+				.pipe(cache(filePath));
 
 				// 调用正式的gulp工作流
-				if(pipeFn){
+				if (pipeFn) {
 					stream = pipeFn(stream);
 				}
 
@@ -428,6 +443,10 @@ module.exports = (staticRoot, env) => {
 					file.etag = require("etag")(file.contents);
 					// 如果获取到的文件正好是外部要获取的文件，则发送给外部
 					if (file.path === filePath) {
+						var sourceMap = getSourceMap(file);
+						if(sourceMap){
+							file.contents = new Buffer(file.contents.toString() + sourceMap);
+						}
 						resolve(file);
 					} else {
 						// 如果获取到的文件是sourceMap之类的文件，先放进缓存，等外部下次请求时发送
