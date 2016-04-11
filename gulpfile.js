@@ -73,7 +73,33 @@ var stylelintConfig = {
 		"value-no-vendor-prefix": true
 	}
 };
+// Stylelint reporter config
+var warnIcon = encodeURIComponent(`<svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" width="48px" height="48px" viewBox="0 0 512 512" enable-background="new 0 0 512 512" xml:space="preserve"><path fill="#A82734" id="warning-4-icon" d="M228.55,134.812h54.9v166.5h-54.9V134.812z M256,385.188c-16.362,0-29.626-13.264-29.626-29.625c0-16.362,13.264-29.627,29.626-29.627c16.361,0,29.625,13.265,29.625,29.627C285.625,371.924,272.361,385.188,256,385.188z M256,90c91.742,0,166,74.245,166,166c0,91.741-74.245,166-166,166c-91.742,0-166-74.245-166-166C90,164.259,164.245,90,256,90z M256,50C142.229,50,50,142.229,50,256s92.229,206,206,206s206-92.229,206-206S369.771,50,256,50z"/></svg>`);
+var stylelintReporterConfig = {
+	styles: {
+		"display": "block",
 
+		"margin": "1em",
+		"font-size": ".9em",
+		"padding": "1.5em 1em 1.5em 4.5em",
+		/* padding + background image padding */
+
+		/* background */
+		"color": "white",
+		"background-color": "#DF4F5E",
+		"background": `url("data:image/svg+xml;charset=utf-8,${ warnIcon }") .5em 1.5em no-repeat, #DF4F5E linear-gradient(#DF4F5E, #CE3741)`,
+
+		/* sugar */
+		"border": "1px solid #C64F4B",
+		"border-radius": "3px",
+		"box-shadow": "inset 0 1px 0 #EB8A93, 0 0 .3em rgba(0,0,0, .5)",
+
+		/* nice font */
+		"white-space": "pre-wrap",
+		"font-family": "Menlo, Monaco, monospace",
+		"text-shadow": "0 1px #A82734"
+	}
+};
 var jsModule = getFile((content, file) => {
 	// 模块加载器、非js模块普通文件，cmd规范模块，不作处理
 	if (/\/common(?:\Wmin)?\.js$/.test(file.path) || !/\b(?:define\(|module|exports|require\()\b/.test(content) || /\bdefine\.cmd\b/.test(content)) {
@@ -226,7 +252,6 @@ contents
 			var lineCount = js.replace(/\/\*(?:.|\n)+?\*\//g, "").replace(/\n+/g, "\n").trim().match(/\n/g);
 			if (lineCount && lineCount.length > 3 && file.jshint && !file.jshint.success && !file.jshint.ignored && !/[\\/]jquery(?:-\d.*?)?(?:[-\.]min)?.js$/.test(file.path)) {
 				var uri = JSON.stringify("/" + file.relative.replace(/\\/g, "/"));
-				console.log(file.moduleWrapLineNumber);
 				var errors = JSON.stringify(file.jshint.results.map(result => [result.error.reason, result.error.line + (file.moduleWrapLineNumber || 0), result.error.character]));
 				var reporter = jsBrowserReporter.toString().replace(/^(function)\s*\w+/, "$1");
 				return `${ js }
@@ -241,13 +266,48 @@ contents
 	return stream;
 }
 
+/* CSS代码美化 */
+function csscomb(stream) {
+	if (isDev) {
+
+		return stream.pipe(getFile(function(css, file) {
+			var Comb = require("csscomb");
+			var configPath = Comb.getCustomConfigPath(path.join(path.dirname(file.base), ".csscomb.json"));
+			var config = Comb.getCustomConfig(configPath);
+			var comb = new Comb(config || "csscomb");
+			var syntax = file.path.split(".").pop();
+			var newCss;
+
+			try {
+				newCss = comb.processString(file.contents.toString(), {
+					syntax: syntax,
+					filename: file.path
+				});
+			} catch (err) {
+
+			}
+			if (newCss && newCss !== css) {
+				require("fs").writeFileSync(file.path, newCss);
+				return newCss;
+			}
+		}));
+	}
+	return stream;
+}
+
 function cssPipe(stream) {
 	var processors = [
 		isDev ? require("stylelint")(stylelintConfig) : null,
 		// css未来标准提前使用
-		require("cssnext")(),
+		require("postcss-cssnext")({
+			features: {
+				"autoprefixer": {
+					browsers: ["last 3 version", "ie > 8", "Android >= 3", "Safari >= 5.1", "iOS >= 5"]
+				}
+			}
+		}),
 		// scss风格的预处理器
-		require("precss")(),
+		// require("precss")(),
 		// IE8期以下兼容rem
 		require("pixrem"),
 		// IE9兼容vmin
@@ -261,14 +321,13 @@ function cssPipe(stream) {
 			useHash: true,
 			url: "copy" // or "inline" or "copy"
 		}),
-		// 浏览器私有属性前缀添加
-		require("autoprefixer")({
-			browsers: ["last 3 version", "ie > 8", "Android >= 3", "Safari >= 5.1", "iOS >= 5"]
-		}),
+		isDev ? require("postcss-browser-reporter")(stylelintReporterConfig) : null,
 		isDev ? require("postcss-reporter")({
 			clearMessages: true
 		}) : null,
 	];
+
+	stream = csscomb(stream);
 
 	// 过滤掉空的postcss插件
 	processors = processors.filter(processor => processor);
@@ -324,7 +383,8 @@ module.exports = (staticRoot, env) => {
 			var stream = gulp.src(filePath, gulpOpts)
 				// 错误汇报机制
 				.pipe(plumber(ex => {
-					delete cache.caches[filePath];
+					delete cache.caches[filePath][filePath];
+					remember.forget(filePath, filePath);
 					reject(ex);
 				}))
 				// 仅仅传递变化了的文件

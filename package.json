@@ -25,7 +25,6 @@
     "compression": "^1.6.1",
     "cookie-parser": "^1.4.1",
     "cssgrace": "^3.0.0",
-    "cssnext": "^1.8.4",
     "etag": "^1.7.0",
     "express": "^4.13.4",
     "gulp": "^3.9.1",
@@ -42,6 +41,7 @@
     "lodash": "^4.7.0",
     "morgan": "^1.7.0",
     "postcss": "^5.0.19",
+    "postcss-cssnext": "^2.5.2",
     "postcss-filter-gradient": "^0.2.4",
     "precss": "^1.4.0",
     "ranma": "^0.5.0",
@@ -51,6 +51,7 @@
     "uglify-js": "^2.6.2"
   },
   "devDependencies": {
+    "csscomb": "^3.1.8",
     "gulp-jshint": "^2.0.0",
     "jshint": "^2.9.1",
     "markdown-it": "^6.0.0",
