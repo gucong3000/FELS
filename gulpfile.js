@@ -1,6 +1,7 @@
 "use strict";
 var gulp = require("gulp");
 var path = require("path");
+var fs = require("fs");
 var gutil = require("gulp-util");
 var through = require("through2");
 var uglifyOpt = {
@@ -287,7 +288,7 @@ function csscomb(stream) {
 
 			}
 			if (newCss && newCss !== css) {
-				require("fs").writeFileSync(file.path, newCss);
+				fs.writeFileSync(file.path, newCss);
 				return newCss;
 			}
 		}));
@@ -358,6 +359,21 @@ module.exports = (staticRoot, env) => {
 	var sendFileCache = {};
 
 	function sendFile(filePath) {
+		function string_src(filename, buffer) {
+			var src = require("stream").Readable({
+				objectMode: true
+			});
+			src._read = function() {
+				this.push(new gutil.File({
+					cwd: staticRoot,
+					base: staticRoot,
+					path: filename,
+					contents: buffer
+				}));
+				this.push(null);
+			};
+			return src;
+		}
 
 		var pipeFn;
 		filePath = path.resolve(path.join(staticRoot, filePath));
@@ -380,33 +396,45 @@ module.exports = (staticRoot, env) => {
 		}
 
 		return new Promise((resolve, reject) => {
-			var stream = gulp.src(filePath, gulpOpts)
-				// 错误汇报机制
-				.pipe(plumber(ex => {
-					delete cache.caches[filePath][filePath];
-					remember.forget(filePath, filePath);
-					reject(ex);
-				}))
-				// 仅仅传递变化了的文件
-				.pipe(cache(filePath));
-
-			// 调用正式的gulp工作流
-			stream = pipeFn(stream);
-
-			// 获取缓存中的数据
-			stream.pipe(remember(filePath))
-
-			// 取出文件内容，返回给外部
-			.pipe(through.obj((file) => {
-				file.etag = require("etag")(file.contents);
-				// 如果获取到的文件正好是外部要获取的文件，则发送给外部
-				if (file.path === filePath) {
-					resolve(file);
+			fs.readFile(filePath, function(err, data) {
+				if (err) {
+					reject(err);
 				} else {
-					// 如果获取到的文件是sourceMap之类的文件，先放进缓存，等外部下次请求时发送
-					sendFileCache[file.path] = file;
+					resolve(data);
 				}
-			}));
+			});
+		}).then(data => {
+			return new Promise((resolve, reject) => {
+				var stream = string_src(filePath, data)
+					// 错误汇报机制
+					.pipe(plumber(ex => {
+						delete cache.caches[filePath][filePath];
+						remember.forget(filePath, filePath);
+						reject(ex);
+					}))
+					// 仅仅传递变化了的文件
+					.pipe(cache(filePath));
+
+				// 调用正式的gulp工作流
+				if(pipeFn){
+					stream = pipeFn(stream);
+				}
+
+				// 获取缓存中的数据
+				stream.pipe(remember(filePath))
+
+				// 取出文件内容，返回给外部
+				.pipe(through.obj((file) => {
+					file.etag = require("etag")(file.contents);
+					// 如果获取到的文件正好是外部要获取的文件，则发送给外部
+					if (file.path === filePath) {
+						resolve(file);
+					} else {
+						// 如果获取到的文件是sourceMap之类的文件，先放进缓存，等外部下次请求时发送
+						sendFileCache[file.path] = file;
+					}
+				}));
+			});
 		});
 	}
 	return sendFile;

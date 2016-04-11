@@ -31,6 +31,20 @@ function readFileByGulp(filePath){
 	return gulp(filePath);
 }
 
+var errMsgMap = {
+	"EACCES": "权限不足，对此文件的访问被操作系统拒绝",
+	"EISDIR": "该路径是目录而不是文件",
+	"EMFILE": "当前打开的文件太多，请稍后再试",
+	"ENOENT": "没有找到该文件或目录",
+};
+
+var errCodeMap = {
+	"EACCES": 403,
+	"EISDIR": 422,
+	"EMFILE": 421,
+	"ENOENT": 404,
+};
+
 // 将文件请求转发给gulp
 app.use((req, res, next) => {
 
@@ -64,7 +78,16 @@ app.use((req, res, next) => {
 				res.set("ETag", file.etag);
 			}
 			res.send(file.contents);
-		}).catch(next);
+		}).catch(err=>{
+			if(err.code && errMsgMap[err.code]){
+				var newErr = errMsgMap[err.code] + "\t" + req.originalUrl;
+				newErr = new Error(newErr);
+				newErr.status = errCodeMap[err.code] || 400;
+				next(newErr);
+			} else {
+				next(err);
+			}
+		});
 	} else {
 		// gulp木有接受请求
 		next();
@@ -211,7 +234,7 @@ ${ isDev ? err.stack : err.message }
 				child.kill();
 				child = cluster.fork();
 				if (livereloadServer) {
-					livereloadServer.reload();
+					livereloadServer.refresh();
 				}
 			}
 			// 此文件修改时，自动重启进程
