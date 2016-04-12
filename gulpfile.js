@@ -292,7 +292,7 @@ function csscomb(stream) {
 		if (newCss && newCss !== css) {
 			let notifier = require("node-notifier");
 			notifier.notify({
-				title: "CSS代码美化",
+				title: "CSScomb",
 				message: "发现未规范化的代码，点击修复此问题。\\n" + file.path,
 				icon: "https://raw.githubusercontent.com/csscomb/csscomb.js/master/logo.png",
 				sound: true, // Only Notification Center or Windows Toasters 
