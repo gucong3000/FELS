@@ -10,18 +10,18 @@ var uglifyOpt = {
 		return /@(cc_on|if|else|end|_jscript(_\w+)?)\s/i.test(info.value);
 	}
 };
-// gulp 插件引用开始
 
+// gulp 插件引用开始
 // gulp缓存插件，只传递变化了的文件
 var cache = require("gulp-cached");
 // gulp缓存读取插件，读取缓存中的内容
 var remember = require("gulp-remember");
 // gulp异常处理插件
 var plumber = require("gulp-plumber");
+// gulp 插件引用结束
 
 var isDev;
 
-// gulp 插件引用结束
 
 function getFile(callback) {
 	var through = require("through2");
@@ -148,6 +148,16 @@ ${ content }
 });
 
 /**
+ * 检查代码去除块注释后、合并连续换行符之后，还有有几行
+ * @param  {String} code 要检查的代码
+ * @return {Number}      代码行数
+ */
+function lineCount(code) {
+	var lineCount = code.replace(/\/\*(?:.|\r?\n)+?\*\//g, "").replace(/(?:\r?\n)+/g, "\n").trim().match(/\n/g);
+	return lineCount ? lineCount.length : 0;
+}
+
+/**
  * 代码错误汇报函数，在浏览器中运行，用于将jshinit收集到的报出的错误信息在浏览器控制台中弹出
  * 注意！！此函数将被toString()后发送到浏览器，并非在node下运行！！
  * @param  {Array} errors 二维数组，里面的维度，[0]是错误消息，[1]是行号，[2]是列号
@@ -239,7 +249,6 @@ function jsPipe(stream) {
 	// AMD、CDM模块封装
 	stream = stream.pipe(getFile(function(contents, file) {
 		if (!/\bdefine\(/i.test(contents) && (/\brequire\(/i.test(contents) || /(?:\bmodule|exports)\s*=[^=]/i.test(contents))) {
-			file.moduleWrapLineNumber = 1;
 			return `(function(f){typeof define==="function"?define("/${ file.relative.replace(/\\/g, "/") }",f):f()})(function(require,exports,module){${
 contents
 }});`;
@@ -249,10 +258,9 @@ contents
 	if (isDev) {
 		// jshint错误汇报
 		stream = stream.pipe(getFile(function(js, file) {
-			var lineCount = js.replace(/\/\*(?:.|\n)+?\*\//g, "").replace(/\n+/g, "\n").trim().match(/\n/g);
-			if (lineCount && lineCount.length > 3 && file.jshint && !file.jshint.success && !file.jshint.ignored && !/[\\/]jquery(?:-\d.*?)?(?:[-\.]min)?.js$/.test(file.path)) {
+			if (file.jshint && !file.jshint.success && !file.jshint.ignored && !/[\\/]jquery(?:-\d.*?)?(?:[-\.]min)?.js$/.test(file.path)) {
 				var uri = JSON.stringify("/" + file.relative.replace(/\\/g, "/"));
-				var errors = JSON.stringify(file.jshint.results.map(result => [result.error.reason, result.error.line + (file.moduleWrapLineNumber || 0), result.error.character]));
+				var errors = JSON.stringify(file.jshint.results.map(result => [result.error.reason, result.error.line, result.error.character]));
 				var reporter = jsBrowserReporter.toString().replace(/^(function)\s*\w+/, "$1");
 				return `${ js }
 (${ reporter })(${ errors }, ${ uri })
@@ -282,12 +290,25 @@ function csscomb(stream) {
 
 		}
 		if (newCss && newCss !== css) {
-			fs.writeFileSync(file.path, newCss);
+			let notifier = require("node-notifier");
+			notifier.notify({
+				title: "CSS代码美化",
+				message: "发现未规范化的代码，点击修复此问题。\\n" + file.path,
+				icon: "https://raw.githubusercontent.com/csscomb/csscomb.js/master/logo.png",
+				sound: true, // Only Notification Center or Windows Toasters 
+				wait: true // Wait with callback, until user action is taken against notification 
+			}, function(err, response) {
+				// Response is response from notification
+				if (!err && response ==="activate") {
+					fs.writeFileSync(file.path, newCss);
+				}
+			});
 			return newCss;
 		}
 	}));
 }
 
+// css工作流
 function cssPipe(stream) {
 	var processors = [
 		isDev ? require("stylelint")(stylelintConfig) : null,
@@ -321,8 +342,10 @@ function cssPipe(stream) {
 	];
 
 	if (isDev) {
+		// CSS代码美化
 		stream = csscomb(stream);
 	} else {
+		// css sourcemaps初始化
 		stream = stream.pipe(require("gulp-sourcemaps").init());
 	}
 
@@ -339,6 +362,7 @@ function cssPipe(stream) {
 	return stream;
 }
 
+// html工作流
 function htmlPipe(stream) {
 	return stream;
 }
@@ -351,21 +375,29 @@ module.exports = (staticRoot, env) => {
 
 	var sendFileCache = {};
 
+	/**
+	 * 获取文件sourceMap，sourceMap文件写入缓存(sendFileCache), return sourceMap路径声明注释
+	 * @param  {vinyl} file		要获取sourceMap的文件
+	 * @return {String}			若file有sourceMap，则返回换行符开头的文件注释，注释内容为sourceMap路径声明
+	 */
 	function getSourceMap(file) {
 		if (file.sourceMap && !/\bsourceMappingURL=[^\n]+\.map\b/.test(file.contents)) {
 
 			file.sourceMap.sourceRoot = "//view-source/";
 			var sourceMap = JSON.stringify(file.sourceMap),
 				sourceMapPath = file.path + ".map",
-				url = sourceMapPath.replace(/^.*[\/\\]/, "");
+				url = sourceMapPath.replace(/^.*[\/\\]/, ""),
+				sourceMapFile = new gutil.File({
+					cwd: file.cwd,
+					base: file.base,
+					path: sourceMapPath,
+					contents: new Buffer(sourceMap)
+				});
 
-			sendFileCache[sourceMapPath] = new gutil.File({
-				cwd: file.cwd,
-				base: file.base,
-				path: sourceMapPath,
-				contents: new Buffer(sourceMap)
-			});
-			return /\.js$/.test(file.path) ? "\n//# sourceMappingURL=" + url + "\n" : "\n/*# sourceMappingURL=" + url + " */\n";
+			sourceMapFile.etag = require("etag")(file.contents);
+			sendFileCache[sourceMapPath] = sourceMapFile;
+
+			return /\.js$/.test(file.path) ? "\n//# sourceMappingURL=" + url : "\n/*# sourceMappingURL=" + url + " */";
 		}
 		return "";
 	}
@@ -381,7 +413,7 @@ module.exports = (staticRoot, env) => {
 					cwd: staticRoot,
 					base: staticRoot,
 					path: filename,
-					contents: buffer
+					contents: Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer)
 				}));
 				this.push(null);
 			};
@@ -397,7 +429,7 @@ module.exports = (staticRoot, env) => {
 			return Promise.resolve(sendFileCache[filePath]);
 		} else if (/[\.\-]min\.\w+$/.test(filePath)) {
 			// 已压缩文件，不作处理
-			return;
+			pipeFn = false;
 		} else if (/\.js$/i.test(filePath)) {
 			pipeFn = jsPipe;
 		} else if (/\.css$/i.test(filePath)) {
@@ -417,6 +449,14 @@ module.exports = (staticRoot, env) => {
 				}
 			});
 		}).then(data => {
+
+			var contents = data.toString();
+
+			// 如果文件为压缩文件，则不做工作流处理
+			if (/\bsourceMappingURL=[^\n]+\.map\b/.test(contents) || lineCount(contents) < 3) {
+				pipeFn = false;
+			}
+
 			return new Promise((resolve, reject) => {
 				var stream = string_src(filePath, data)
 
@@ -430,9 +470,19 @@ module.exports = (staticRoot, env) => {
 				// 仅仅传递变化了的文件
 				.pipe(cache(filePath));
 
-				// 调用正式的gulp工作流
 				if (pipeFn) {
+
+					// 调用正式的gulp工作流
 					stream = pipeFn(stream);
+
+					// 处理文件的sourceMap
+					stream = stream.pipe(getFile((content, file) => {
+						// 在文件末尾添加一行sourceMap注释
+						var sourceMapComment = getSourceMap(file);
+						if (sourceMapComment) {
+							return content.replace(/\n*$/, sourceMapComment);
+						}
+					}));
 				}
 
 				// 获取缓存中的数据
@@ -443,10 +493,6 @@ module.exports = (staticRoot, env) => {
 					file.etag = require("etag")(file.contents);
 					// 如果获取到的文件正好是外部要获取的文件，则发送给外部
 					if (file.path === filePath) {
-						var sourceMap = getSourceMap(file);
-						if(sourceMap){
-							file.contents = new Buffer(file.contents.toString() + sourceMap);
-						}
 						resolve(file);
 					} else {
 						// 如果获取到的文件是sourceMap之类的文件，先放进缓存，等外部下次请求时发送

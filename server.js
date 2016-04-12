@@ -27,7 +27,7 @@ app.set("etag", "strong");
 
 var gulp = require("./gulpfile")(staticRoot, app.get("env"));
 
-function readFileByGulp(filePath){
+function readFileByGulp(filePath) {
 	return gulp(filePath);
 }
 
@@ -44,6 +44,12 @@ var errCodeMap = {
 	"EMFILE": 421,
 	"ENOENT": 404,
 };
+
+// 只有dev环境使用
+if (app.get("env") === "development") {
+	// 将所有html请求加入livescript功能
+	app.use(require("connect-livereload")());
+}
 
 // 将文件请求转发给gulp
 app.use((req, res, next) => {
@@ -78,8 +84,8 @@ app.use((req, res, next) => {
 				res.set("ETag", file.etag);
 			}
 			res.send(file.contents);
-		}).catch(err=>{
-			if(err.code && errMsgMap[err.code]){
+		}).catch(err => {
+			if (err && err.code && errMsgMap[err.code]) {
 				var newErr = errMsgMap[err.code] + "\t" + req.originalUrl;
 				newErr = new Error(newErr);
 				newErr.status = errCodeMap[err.code] || 400;
@@ -99,7 +105,7 @@ if (app.get("env") === "development") {
 	// 将所有*.jumei.com的访问请求重定向到*.jumeicd
 	app.use((req, res, next) => {
 		if (/^(.*?)\.jumei\.com$/.test(req.hostname)) {
-			res.redirect(`http://${RegExp.$1}.jumeicd.com${ req.originalUrl }`);
+			res.redirect(`http://${ RegExp.$1 }.jumeicd.com${ req.originalUrl }`);
 		} else {
 			next();
 		}
@@ -162,8 +168,6 @@ if (app.get("env") === "development") {
 			next();
 		}
 	});
-	// 调试语句未来删掉
-	gulp("/index.html");
 }
 
 // 静态资源
@@ -212,7 +216,6 @@ ${ isDev ? err.stack : err.message }
 (function() {
 
 	const fs = require("fs");
-	const cluster = require("cluster");
 	const isDev = app.get("env") === "development";
 	let options;
 
@@ -225,42 +228,26 @@ ${ isDev ? err.stack : err.message }
 	}
 
 	// 开发环境下，自动刷新服务端进程与自动刷新浏览器页面
-	if (isDev && cluster.isMaster) {
-		(() => {
-			let livereloadServer;
-			let child = cluster.fork();
-			// 开发环境下，自动重启进程
-			function restart() {
-				child.kill();
-				child = cluster.fork();
-				if (livereloadServer) {
-					livereloadServer.refresh();
-				}
-			}
-			// 此文件修改时，自动重启进程
-			fs.watchFile(__filename, restart);
-			// gulpfile.js修改时，自动重启进程
-			fs.watchFile(require.resolve("./gulpfile"), restart);
+	if (isDev) {
 
-			// 浏览器端自动刷新
-			let livereload;
-			try {
-				livereload = require("livereload");
-			} catch (ex) {
+		let livereloadServer;
 
-			}
-			if (livereload) {
-				livereloadServer = livereload.createServer({
-					https: options
-				});
-				livereloadServer.watch(staticRoot);
-			} else {
-				console.error("缺少node组件，请通过npm命令安装：livereload");
-			}
+		// 浏览器端自动刷新
+		let livereload;
+		try {
+			livereload = require("livereload");
+		} catch (ex) {
 
-		})();
-
-		return;
+		}
+		if (livereload) {
+			livereloadServer = livereload.createServer({
+				https: options
+			});
+			livereloadServer.watch(staticRoot);
+			// livereloadServer.filterRefresh();
+		} else {
+			console.error("缺少node组件，请通过npm命令安装：livereload");
+		}
 	}
 	let port = normalizePort(process.env.PORT);
 	let defaultPort;
@@ -343,6 +330,6 @@ ${ isDev ? err.stack : err.message }
 	function onListening() {
 		console.log(`This process is pid ${ process.pid }.
 Listening on ${ port }
-${ app.get("env") }`);
+env: ${ app.get("env") }`);
 	}
 })();
