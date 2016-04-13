@@ -184,7 +184,7 @@ if (app.get("env") === "development") {
 // production error handler
 // no stacktraces leaked to user
 app.use((err, req, res, next) => {
-	if (err && err) {
+	if (err && err.stack) {
 		var errLog = err.stack.toString();
 		if (errLog.length < 800) {
 			// 控制台显示完整报错信息
@@ -245,6 +245,8 @@ ${ isDev ? err.stack : err.message }
 			});
 			livereloadServer.watch(staticRoot);
 			// livereloadServer.filterRefresh();
+			console.log("\nlivereload\t\t" + livereloadServer.config.port);
+
 		} else {
 			console.error("缺少node组件，请通过npm命令安装：livereload");
 		}
@@ -328,8 +330,8 @@ ${ isDev ? err.stack : err.message }
 	 */
 
 	function onListening() {
-		console.log(`This process is pid ${ process.pid }.
-Listening on ${ port }
-env: ${ app.get("env") }`);
+		console.log(`web\t\t\t${ port }
+process ID:\t\t${ process.pid }
+env \t\t\t${ app.get("env") }`);
 	}
 })();

@@ -1,0 +1,46 @@
+{
+	// Whether to add a semicolon after the last value/mixin.
+	"always-semicolon": true,
+	// Set indent for code inside blocks, including media queries and nested rules.
+	"block-indent": "\t",
+	// Unify case of hexadecimal colors.
+	"color-case": "lower",
+	// Whether to expand hexadecimal colors or use shorthands.
+	"color-shorthand": true,
+	// Unify case of element selectors.
+	"element-case": "lower",
+	// Add/remove line break at EOF.
+	"eof-newline": true,
+	// Add/remove leading zero in dimensions.
+	"leading-zero": false,
+	// Unify quotes style.
+	"quotes": "double",
+	// Remove all rulesets that contain nothing but spaces.
+	"remove-empty-rulesets": true,
+	"sort-order-fallback": "abc",
+	// Set space after `:` in declarations.
+	"space-after-colon": " ",
+	// Set space after combinator (for example, in selectors like `p > a`).
+	"space-after-combinator": " ",
+	// Set space after `{`.
+	"space-after-opening-brace": "\n",
+	// Set space after selector delimiter.
+	"space-after-selector-delimiter": "\n",
+	// Set space before `}`.
+	"space-before-closing-brace": "\n",
+	// Set space before `:` in declarations.
+	"space-before-colon": "",
+	// Set space before combinator (for example, in selectors like `p > a`).
+	"space-before-combinator": " ",
+	// Set space before `{`.
+	"space-before-opening-brace": " ",
+	// Set space before selector delimiter.
+	"space-before-selector-delimiter": "",
+	// Set space between declarations (i.e. `color: tomato`).
+	"space-between-declarations": "\n",
+	// Whether to trim trailing spaces.
+	"strip-spaces": true,
+	"tab-size": true,
+	// Whether to remove units in zero-valued dimensions.
+	"unitless-zero": true
+}

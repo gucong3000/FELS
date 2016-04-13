@@ -229,6 +229,8 @@ function jsBrowserReporter(errors, path) {
 
 function jsPipe(stream) {
 	if (isDev) {
+		// js代码美化
+		jsBeautify(stream);
 		// js 代码风格检查
 		var jshint = require("gulp-jshint");
 
@@ -271,41 +273,139 @@ contents
 	return stream;
 }
 
+var RcLoader = require("rcloader");
+var rcCache = {};
+var defaultOpts = {
+	// Stylelint config rules
+	".csscomb.json": {
+		// Whether to add a semicolon after the last value/mixin.
+		"always-semicolon": true,
+		// Set indent for code inside blocks, including media queries and nested rules.
+		"block-indent": "\t",
+		// Unify case of hexadecimal colors.
+		"color-case": "lower",
+		// Whether to expand hexadecimal colors or use shorthands.
+		"color-shorthand": true,
+		// Unify case of element selectors.
+		"element-case": "lower",
+		// Add/remove line break at EOF.
+		"eof-newline": true,
+		// Add/remove leading zero in dimensions.
+		"leading-zero": false,
+		// Unify quotes style.
+		"quotes": "double",
+		// Remove all rulesets that contain nothing but spaces.
+		"remove-empty-rulesets": true,
+		"sort-order-fallback": "abc",
+		// Set space after `:` in declarations.
+		"space-after-colon": " ",
+		// Set space after combinator (for example, in selectors like `p > a`).
+		"space-after-combinator": " ",
+		// Set space after `{`.
+		"space-after-opening-brace": "\n",
+		// Set space after selector delimiter.
+		"space-after-selector-delimiter": "\n",
+		// Set space before `}`.
+		"space-before-closing-brace": "\n",
+		// Set space before `:` in declarations.
+		"space-before-colon": "",
+		// Set space before combinator (for example, in selectors like `p > a`).
+		"space-before-combinator": " ",
+		// Set space before `{`.
+		"space-before-opening-brace": " ",
+		// Set space before selector delimiter.
+		"space-before-selector-delimiter": "",
+		// Set space between declarations (i.e. `color: tomato`).
+		"space-between-declarations": "\n",
+		// Whether to trim trailing spaces.
+		"strip-spaces": true,
+		"tab-size": true,
+		// Whether to remove units in zero-valued dimensions.
+		"unitless-zero": true
+	}
+};
+
+
+/**
+ * 代码美化，调用opts.beautify函数美化代码后，如果代码产生变化，弹出气泡提示，如用户点击气泡，则写入新代码到文件
+ * @param  {Stream}			stream				包含文件的数据流
+ * @param  {Object}			opts   				参数集合
+ * @param  {String}			opts.rcName			配置文件文件名，供rcloader组件加载配置用
+ * @param  {Function}		opts.beautify		代码美化函数，参数三个，{String}旧代码、{Object}rcloader找到的配置、{vinyl}文件对象
+ * @param  {String}			opts.title			弹出的气泡的标题
+ * @param  {Buffer|String}	opts.icon			弹出的气泡提示中的图片，可谓文件内容的buffer，或文件路径、或文件url
+ * @return {Stream}			stream				原样返回的stream，与原始值一样
+ */
+function fileFix(stream, opts) {
+	return stream.pipe(getFile(function(code, file) {
+		var rcLoader = rcCache[opts.rcName] || (rcCache[opts.rcName] = new RcLoader(opts.rcName, defaultOpts[opts.rcName] || (defaultOpts[opts.rcName] = {}), {
+			loader: "async"
+		}));
+
+		var filePath = file.path;
+		rcLoader.for(filePath, function(err, rc) {
+
+			if (err) {
+				rc = defaultOpts[opts.rcName];
+			}
+			var newCode;
+			try {
+				newCode = opts.beautify(code, rc, file);
+			} catch (err) {
+
+			}
+
+			if (newCode && newCode !== code) {
+				var notifier = require("node-notifier");
+				opts.sound = true;
+				opts.wait = true;
+				opts.message = "发现未规范化的代码，点击修复此问题。\n" + filePath;
+				notifier.notify(opts, function(err, response) {
+					// Response is response from notification
+					if (!err && response === "activate") {
+						console.log(response);
+						fs.writeFile(filePath, newCode, function(err) {
+							if (!err) {
+								console.log("文件被自动修复：\n" + filePath);
+							}
+						});
+					}
+				});
+			}
+		});
+	}));
+}
+
 /* CSS代码美化 */
 function csscomb(stream) {
-	return stream.pipe(getFile(function(css, file) {
-		var Comb = require("csscomb");
-		var configPath = Comb.getCustomConfigPath(path.join(path.dirname(file.base), ".csscomb.json"));
-		var config = Comb.getCustomConfig(configPath);
-		var comb = new Comb(config || "csscomb");
-		var syntax = file.path.split(".").pop();
-		var newCss;
-
-		try {
-			newCss = comb.processString(file.contents.toString(), {
-				syntax: syntax,
+	fileFix(stream, {
+		title: "js-beautify",
+		icon: "https://avatars1.githubusercontent.com/u/38091",
+		"rcName": ".csscomb.json",
+		beautify: function(css, config, file) {
+			var comb = new require("csscomb")(config || "csscomb");
+			return comb.processString(css, {
+				syntax: file.path.split(".").pop(),
 				filename: file.path
 			});
-		} catch (err) {
+		}
+	});
+	return stream;
+}
 
+/* js代码美化 */
+function jsBeautify(stream) {
+	fileFix(stream, {
+		title: "js-beautify",
+		icon: "https://avatars1.githubusercontent.com/u/38091",
+		"rcName": ".jsbeautifyrc",
+		beautify: function(js, opts, file) {
+			console.log(file.path);
+			console.log(js);
+			return require("js-beautify").js_beautify(js, opts);
 		}
-		if (newCss && newCss !== css) {
-			let notifier = require("node-notifier");
-			notifier.notify({
-				title: "CSScomb",
-				message: "发现未规范化的代码，点击修复此问题。\\n" + file.path,
-				icon: "https://raw.githubusercontent.com/csscomb/csscomb.js/master/logo.png",
-				sound: true, // Only Notification Center or Windows Toasters 
-				wait: true // Wait with callback, until user action is taken against notification 
-			}, function(err, response) {
-				// Response is response from notification
-				if (!err && response ==="activate") {
-					fs.writeFileSync(file.path, newCss);
-				}
-			});
-			return newCss;
-		}
-	}));
+	});
+	return stream;
 }
 
 // css工作流
@@ -343,7 +443,7 @@ function cssPipe(stream) {
 
 	if (isDev) {
 		// CSS代码美化
-		stream = csscomb(stream);
+		csscomb(stream);
 	} else {
 		// css sourcemaps初始化
 		stream = stream.pipe(require("gulp-sourcemaps").init());
