@@ -28,45 +28,41 @@ app.set("etag", "strong");
 var gulp = require("./gulpfile")(staticRoot, app.get("env"));
 
 function readFileByGulp(filePath) {
+	// 线上服务器路径映射为本地路径
+
+	// `/d28bab9bd69f3090/app.css` 转换为 `/app.css`
+	filePath = filePath.replace(/\/[\da-f]{16,}\//, "\/");
+
+	// `/static_passport/dist/20160126_2/js/library/es5-shim.js` 转换为 `/static_passport/src/js/library/es5-shim.js`
+	filePath = filePath.replace(/\/dist\/201\d(?:0?[1-9]|11|12)[\d\_]+\//, "/src\/");
+
 	return gulp(filePath);
 }
-
-var errMsgMap = {
-	"EACCES": "权限不足，对此文件的访问被操作系统拒绝",
-	"EISDIR": "该路径是目录而不是文件",
-	"EMFILE": "当前打开的文件太多，请稍后再试",
-	"ENOENT": "没有找到该文件或目录",
-};
-
-var errCodeMap = {
-	"EACCES": 403,
-	"EISDIR": 422,
-	"EMFILE": 421,
-	"ENOENT": 404,
-};
 
 // 只有dev环境使用
 if (app.get("env") === "development") {
 	// 将所有html请求加入livescript功能
 	app.use(require("connect-livereload")());
+	app.use((req, res, next) => {
+		next();
+	});
 }
 
 // 将文件请求转发给gulp
-app.use((req, res, next) => {
+app.get("/*", (req, res, next) => {
 
 	var combo = req.originalUrl.match(/^(.+?)\?\?+(.+?)$/);
 	var promise;
 	if (combo) {
 		// combo方式文件请求合并
 		combo = combo[2].split(/\s*,\s*/).map(filePath => url.parse(url.resolve(combo[1], filePath)).pathname);
-		promise = Promise.all(combo.map(readFileByGulp))
-			.then((files) => {
-				files = files.filter(file => file);
-				return {
-					etag: files.map(file => file.etag || "").join(","),
-					contents: files.map(file => file.contents).join("\n")
-				};
-			});
+		promise = Promise.all(combo.map(readFileByGulp)).then((files) => {
+			files = files.filter(file => file);
+			return {
+				etag: files.map(file => file.etag || "").join(","),
+				contents: files.map(file => file.contents).join("\n")
+			};
+		});
 	} else {
 		// 普通的js、css操作
 		promise = readFileByGulp(req.path);
@@ -85,14 +81,7 @@ app.use((req, res, next) => {
 			}
 			res.send(file.contents);
 		}).catch(err => {
-			if (err && err.code && errMsgMap[err.code]) {
-				var newErr = errMsgMap[err.code] + "\t" + req.originalUrl;
-				newErr = new Error(newErr);
-				newErr.status = errCodeMap[err.code] || 400;
-				next(newErr);
-			} else {
-				next(err);
-			}
+			next(err);
 		});
 	} else {
 		// gulp木有接受请求
@@ -100,16 +89,12 @@ app.use((req, res, next) => {
 	}
 });
 
+// 静态资源
+app.use(express.static(staticRoot));
+
 // 只有dev环境使用
 if (app.get("env") === "development") {
-	// 将所有*.jumei.com的访问请求重定向到*.jumeicd
-	app.use((req, res, next) => {
-		if (/^(.*?)\.jumei\.com$/.test(req.hostname)) {
-			res.redirect(`http://${ RegExp.$1 }.jumeicd.com${ req.originalUrl }`);
-		} else {
-			next();
-		}
-	});
+
 	// jsHint报错查询
 	let jshintMsg = require("jshint/src/messages");
 	let msgTypeMap = {
@@ -118,7 +103,7 @@ if (app.get("env") === "development") {
 		E: "errors",
 	};
 	let apiDataCache = {};
-	app.use((req, res, next) => {
+	app.get("/jshint/*", (req, res, next) => {
 		let msgCode;
 		let desc;
 
@@ -135,7 +120,7 @@ if (app.get("env") === "development") {
 				res.type(type).send(data);
 			});
 		}
-		if (/\bjs[hl]int\/((W|E|I)\d+)$/.test(req.path)) {
+		if (/((W|E|I)\d+)$/.test(req.path)) {
 			msgCode = RegExp.$1;
 			if (apiDataCache[msgCode]) {
 				render();
@@ -168,16 +153,34 @@ if (app.get("env") === "development") {
 			next();
 		}
 	});
-}
 
-// 静态资源
-app.use(express.static(staticRoot));
+	// 文件回源
+	app.use((req, res, next) => {
 
-// 只有dev环境使用
-if (app.get("env") === "development") {
+		// 主机域名不是正常的域名，或者是个IP地址时，不去回源
+		if (!/^(?:[\w\-]+\.)+\w+$/.test(req.hostname) || /\d+(?:\.\d+){3}/.test(req.hostname)) {
+			return next();
+		}
+		// dns查找主机
+		require("nslookup")(req.hostname)
+			// 本地dns服务器地址
+			.server("192.168.66.111")
+			.end(function(err, addrs) {
+				if (err || !addrs.length) {
+					// dns未查找到主机，进入下一个Express中间件
+					return next();
+				}
+				// 将请求映射到线上主机
+				require("express-http-proxy")(addrs.pop(), {
+					preserveHostHdr: true,
+				})(req, res, next);
+			});
+
+	});
+
 	// 文件索引页面，
 	app.use(serveIndex(staticRoot, {
-		"icons": true
+		"icons": false
 	}));
 }
 
@@ -185,16 +188,25 @@ if (app.get("env") === "development") {
 // no stacktraces leaked to user
 app.use((err, req, res, next) => {
 	if (err && err.stack) {
-		var errLog = err.stack.toString();
+		var errLog = (err.stack || err).toString();
 		if (errLog.length < 800) {
 			// 控制台显示完整报错信息
 			console.error(errLog);
 		}
-
 		// 前台的报错信息，如果是开发环境，则报err.stack，否则只报err.message
-		var isDev = app.get("env") === "development";
-		var status = err.status || 500;
-		res.status(status).type("html").send(`<!DOCTYPE html>
+		sendErr(res, app.get("env") === "development" ? err.stack : err.message, err.status || 500);
+	} else {
+		next();
+	}
+
+});
+
+app.use((req, res) => {
+	sendErr(res, "文件未找到：\n\t" + req.path, 404);
+});
+
+function sendErr(res, message, status) {
+	res.status(status).type("html").send(`<!DOCTYPE html>
 <!-- Ticket #11289, IE bug fix: always pad the error page with enough characters such that it is greater than 512 bytes, even after gzip compression abcdefghijklmnopqrstuvwxyz1234567890aabbccddeeffgghhiijjkkllmmnnooppqqrrssttuuvvwwxxyyzz11223344556677889900abacbcbdcdcededfefegfgfhghgihihjijikjkjlklkmlmlnmnmononpopoqpqprqrqsrsrtstsubcbcdcdedefefgfabcadefbghicjkldmnoepqrfstugvwxhyz1i234j567k890laabmbccnddeoeffpgghqhiirjjksklltmmnunoovppqwqrrxsstytuuzvvw0wxx1yyz2z113223434455666777889890091abc2def3ghi4jkl5mno6pqr7stu8vwx9yz11aab2bcc3dd4ee5ff6gg7hh8ii9j0jk1kl2lmm3nnoo4p5pq6qrr7ss8tt9uuvv0wwx1x2yyzz13aba4cbcb5dcdc6dedfef8egf9gfh0ghg1ihi2hji3jik4jkj5lkl6kml7mln8mnm9ono -->
 <html lang="zh-CN">
 <head>
@@ -203,14 +215,12 @@ app.use((err, req, res, next) => {
 </head>
 <body>
 <pre>
-${ isDev ? err.stack : err.message }
+${ message }
 </pre>
 </body>
 </html>`);
-	} else {
-		res.status(404).send();
-	}
-});
+}
+
 
 // 启动web服务
 (function() {
@@ -219,50 +229,46 @@ ${ isDev ? err.stack : err.message }
 	const isDev = app.get("env") === "development";
 	let options;
 
-	try {
-		options = {
-			pfx: fs.readFileSync("ssl/ssl.pfx")
-		};
-	} catch (ex) {
-
-	}
-
-	// 开发环境下，自动刷新服务端进程与自动刷新浏览器页面
 	if (isDev) {
+		try {
+			options = {
+				key: fs.readFileSync("./ssl/localhost.key"),
+				ca: [fs.readFileSync("./ssl/rootCA.crt")],
+				cert: fs.readFileSync("./ssl/localhost.crt"),
+			};
+		} catch (ex) {
 
-		let livereloadServer;
+		}
+
+		// 开发环境下，自动刷新服务端进程与自动刷新浏览器页面
 
 		// 浏览器端自动刷新
 		let livereload;
 		try {
-			livereload = require("livereload");
+			livereload = require.resolve("livereload/bin/livereload");
 		} catch (ex) {
+			livereload = "livereload";
 
 		}
-		if (livereload) {
-			livereloadServer = livereload.createServer({
-				https: options
-			});
-			livereloadServer.watch(staticRoot);
-			// livereloadServer.filterRefresh();
-			console.log("\nlivereload\t\t" + livereloadServer.config.port);
-
-		} else {
-			console.error("缺少node组件，请通过npm命令安装：livereload");
-		}
+		require("child_process").execFile("node", [livereload, "--exts", "node_modules", ".hg", ".git", ".svn"], {
+			cwd: require("path").resolve(staticRoot)
+		}, function(err) {
+			if (err) {
+				console.error("缺少node组件，请通过npm命令安装：livereload");
+			}
+		});
+		console.log("\nlivereload\t\t" + 35729);
 	}
-	let port = normalizePort(process.env.PORT);
-	let defaultPort;
+
 	/**
 	 * Normalize a port into a number, string, or false.
 	 */
-
-	function normalizePort(val) {
+	function normalizePort(val, defaultPort) {
 		let port = parseInt(val, 10);
 
 		if (isNaN(port)) {
-			// named pipe
-			return val;
+			// named pipe or empty
+			return val || defaultPort;
 		}
 
 		if (port >= 0) {
@@ -270,27 +276,33 @@ ${ isDev ? err.stack : err.message }
 			return port;
 		}
 
-		return false;
+		return defaultPort;
 	}
 
-	let http;
 	let server;
+	let defaultPort;
+
+	/**
+	 * Create HTTPS server.
+	 */
+	if (options) {
+		try {
+			server = require("spdy").createServer(options, app);
+			defaultPort = 443;
+		} catch (err) {
+			console.error(err.stack || err);
+		}
+	}
 
 	/**
 	 * Create HTTP server.
 	 */
-
-	if (options) {
-		http = require("spdy");
-		server = http.createServer(options, app);
-		defaultPort = isDev ? 3000 : 443;
-	} else {
-		http = require("http");
-		server = http.createServer(app);
-		defaultPort = isDev ? 3000 : 80;
+	if (!server) {
+		server = require("http").createServer(app);
+		defaultPort = 80;
 	}
 
-	port = port || defaultPort;
+	let port = normalizePort(process.env.PORT, defaultPort);
 
 	/**
 	 * Listen on provided port, on all network interfaces.
@@ -328,10 +340,10 @@ ${ isDev ? err.stack : err.message }
 	/**
 	 * Event listener for HTTP server "listening" event.
 	 */
-
 	function onListening() {
-		console.log(`web\t\t\t${ port }
-process ID:\t\t${ process.pid }
-env \t\t\t${ app.get("env") }`);
+		console.log(`http${options ? "s" : ""}:\t\t\t${ port }`);
 	}
+
+	console.log(`env \t\t\t${ app.get("env") }`);
+
 })();

@@ -1,12 +1,11 @@
 "use strict";
-var gulp = require("gulp");
 var path = require("path");
 var fs = require("fs");
 var gutil = require("gulp-util");
 var through = require("through2");
 var uglifyOpt = {
 	//保留IE的jscript条件注释
-	preserveComments: function(o, info) {
+	preserveComments: (o, info) => {
 		return /@(cc_on|if|else|end|_jscript(_\w+)?)\s/i.test(info.value);
 	}
 };
@@ -23,31 +22,32 @@ var plumber = require("gulp-plumber");
 var isDev;
 
 
-function getFile(callback) {
-	var through = require("through2");
-	return through.obj(function(file, enc, cb) {
+function getFile(callback, debugname) {
+	return require("through2").obj((file, encoding, cb) => {
 		if (file.isNull()) {
 			return cb(null, file);
 		}
 
 		if (file.isStream()) {
-			this.emit("error", new Error("Streaming not supported"));
-			return cb();
+			return cb(new Error("Streaming not supported"));
 		}
 
 		var content;
 		try {
 			content = callback(file.contents.toString(), file);
-		} catch (ex) {
-			this.emit("error", ex);
+		} catch (err) {
+			return cb(new gutil.PluginError(debugname, file.path + ": " + (err.message || err.msg || "unspecified error"), {
+				fileName: file.path,
+				lineNumber: err.line,
+				stack: err.stack,
+				showStack: false
+			}));
 		}
+
 		if (content) {
 			file.contents = new Buffer(content);
-			this.push(file);
-			cb();
-		} else {
-			cb(null, file);
 		}
+		cb(null, file);
 	});
 }
 
@@ -107,7 +107,7 @@ var jsModule = getFile((content, file) => {
 		return content;
 	}
 	var isAmd;
-	content = content.replace(/\bdefine\.amd\b/, function() {
+	content = content.replace(/\bdefine\.amd\b/, () => {
 		isAmd = true;
 		return "define.useamd()";
 	});
@@ -124,10 +124,10 @@ var jsModule = getFile((content, file) => {
 		return "";
 	}
 
-	content.replace(/\/\/[^\r\n]+/g, "").replace(/\/\*.+?\*\//g, "").replace(/\brequire\(\s*(["'])([^"']+)\1\s*\)/g, function(s, quotes, moduleName) {
+	content.replace(/\/\/[^\r\n]+/g, "").replace(/\/\*.+?\*\//g, "").replace(/\brequire\(\s*(["'])([^"']+)\1\s*\)/g, (s, quotes, moduleName) => {
 		// 分析代码中的`require("xxxx")`语句，提取出模块名字
 		return addDesp(moduleName);
-	}).replace(/\bimport\b[^;]+?\bfrom\s+(["'])([^"']+)\1/g, function(s, quotes, moduleName) {
+	}).replace(/\bimport\b[^;]+?\bfrom\s+(["'])([^"']+)\1/g, (s, quotes, moduleName) => {
 		// 分析代码中的`import`语句，提取出模块名字
 		return addDesp(moduleName);
 	});
@@ -145,7 +145,7 @@ var jsModule = getFile((content, file) => {
 ${ content }
 });`;
 	return content;
-});
+}, "jsModule");
 
 /**
  * 检查代码去除块注释后、合并连续换行符之后，还有有几行
@@ -211,6 +211,7 @@ function jsBrowserReporter(errors, path) {
 					console.error(err);
 				} catch (ex) {
 					try {
+						// 如果你追踪错误提示来找到这一行，说明你来错误了地方，请按控制台中提示的位置去寻找代码。
 						console.log(err);
 					} catch (ex) {
 						// 不支持console的浏览器中，记录下消息，稍后alert
@@ -230,7 +231,7 @@ function jsBrowserReporter(errors, path) {
 function jsPipe(stream) {
 	if (isDev) {
 		// js代码美化
-		jsBeautify(stream);
+		stream = jsBeautify(stream);
 		// js 代码风格检查
 		var jshint = require("gulp-jshint");
 
@@ -255,7 +256,7 @@ function jsPipe(stream) {
 contents
 }});`;
 		}
-	}));
+	}, "AMD、CDM模块封装"));
 
 	if (isDev) {
 		// jshint错误汇报
@@ -268,7 +269,7 @@ contents
 (${ reporter })(${ errors }, ${ uri })
 `;
 			}
-		}));
+		}, "jshint错误汇报"));
 	}
 	return stream;
 }
@@ -325,15 +326,13 @@ var defaultOpts = {
 	}
 };
 
-
 /**
  * 代码美化，调用opts.beautify函数美化代码后，如果代码产生变化，弹出气泡提示，如用户点击气泡，则写入新代码到文件
  * @param  {Stream}			stream				包含文件的数据流
- * @param  {Object}			opts   				参数集合
- * @param  {String}			opts.rcName			配置文件文件名，供rcloader组件加载配置用
- * @param  {Function}		opts.beautify		代码美化函数，参数三个，{String}旧代码、{Object}rcloader找到的配置、{vinyl}文件对象
- * @param  {String}			opts.title			弹出的气泡的标题
- * @param  {Buffer|String}	opts.icon			弹出的气泡提示中的图片，可谓文件内容的buffer，或文件路径、或文件url
+ * @param  {String}			[opts.rcName]		配置文件文件名，供rcloader组件加载配置用
+ * @param  {Function}		[opts.beautify]		代码美化函数，参数三个，{String}旧代码、{Object}rcloader找到的配置、{vinyl}文件对象
+ * @param  {String}			[opts.title]		弹出的气泡的标题
+ * @param  {Buffer|String}	[opts.icon]			弹出的气泡提示中的图片，可谓文件内容的buffer，或文件路径、或文件url
  * @return {Stream}			stream				原样返回的stream，与原始值一样
  */
 function fileFix(stream, opts) {
@@ -348,64 +347,70 @@ function fileFix(stream, opts) {
 			if (err) {
 				rc = defaultOpts[opts.rcName];
 			}
-			var newCode;
-			try {
-				newCode = opts.beautify(code, rc, file);
-			} catch (err) {
 
-			}
-
-			if (newCode && newCode !== code) {
-				var notifier = require("node-notifier");
-				opts.sound = true;
-				opts.wait = true;
-				opts.message = "发现未规范化的代码，点击修复此问题。\n" + filePath;
-				notifier.notify(opts, function(err, response) {
-					// Response is response from notification
-					if (!err && response === "activate") {
-						console.log(response);
-						fs.writeFile(filePath, newCode, function(err) {
-							if (!err) {
-								console.log("文件被自动修复：\n" + filePath);
-							}
-						});
-					}
-				});
-			}
+			opts.beautify(code, rc, file).then(newCode => {
+				if (newCode && newCode.trim() !== code.trim()) {
+					var notifier = require("node-notifier");
+					opts.sound = true;
+					opts.wait = true;
+					opts.message = "发现未规范化的代码，点击修复此问题。\n" + filePath;
+					notifier.notify(opts, function(err, response) {
+						// Response is response from notification
+						if (!err && response === "activate") {
+							fs.writeFile(filePath, newCode, function(err) {
+								if (!err) {
+									gutil.log("文件被自动修复：\n" + filePath);
+								}
+							});
+						}
+					});
+				}
+			}).catch(err => {
+				console.error(err.stack || err);
+			});
 		});
-	}));
+	}, opts.title));
 }
 
 /* CSS代码美化 */
 function csscomb(stream) {
-	fileFix(stream, {
+	return fileFix(stream, {
 		title: "js-beautify",
 		icon: "https://avatars1.githubusercontent.com/u/38091",
 		"rcName": ".csscomb.json",
 		beautify: function(css, config, file) {
 			var comb = new require("csscomb")(config || "csscomb");
-			return comb.processString(css, {
-				syntax: file.path.split(".").pop(),
-				filename: file.path
+			return new Promise((resolve) => {
+				resolve(comb.processString(css, {
+					syntax: file.path.split(".").pop(),
+					filename: file.path
+				}));
 			});
 		}
 	});
-	return stream;
 }
 
 /* js代码美化 */
 function jsBeautify(stream) {
-	fileFix(stream, {
+	return fileFix(stream, {
 		title: "js-beautify",
 		icon: "https://avatars1.githubusercontent.com/u/38091",
 		"rcName": ".jsbeautifyrc",
-		beautify: function(js, opts, file) {
-			console.log(file.path);
-			console.log(js);
-			return require("js-beautify").js_beautify(js, opts);
+		beautify: function(js, config, file) {
+			return new Promise((resolve, reject) => {
+				var fileIgnored = require("gulp-jshint/src/fileIgnored");
+				fileIgnored(file, (err, ignored) => {
+					if (err) {
+						return reject(err);
+					}
+					if (ignored) {
+						return resolve();
+					}
+					resolve(require("js-beautify").js_beautify(js, config));
+				});
+			});
 		}
 	});
-	return stream;
 }
 
 // css工作流
@@ -443,7 +448,7 @@ function cssPipe(stream) {
 
 	if (isDev) {
 		// CSS代码美化
-		csscomb(stream);
+		stream = csscomb(stream);
 	} else {
 		// css sourcemaps初始化
 		stream = stream.pipe(require("gulp-sourcemaps").init());
@@ -529,7 +534,7 @@ module.exports = (staticRoot, env) => {
 			return Promise.resolve(sendFileCache[filePath]);
 		} else if (/[\.\-]min\.\w+$/.test(filePath)) {
 			// 已压缩文件，不作处理
-			pipeFn = false;
+			return;
 		} else if (/\.js$/i.test(filePath)) {
 			pipeFn = jsPipe;
 		} else if (/\.css$/i.test(filePath)) {
@@ -539,11 +544,10 @@ module.exports = (staticRoot, env) => {
 		} else {
 			return;
 		}
-
 		return new Promise((resolve, reject) => {
-			fs.readFile(filePath, function(err, data) {
+			fs.readFile(filePath, (err, data) => {
 				if (err) {
-					reject(err);
+					reject();
 				} else {
 					resolve(data);
 				}
@@ -582,7 +586,7 @@ module.exports = (staticRoot, env) => {
 						if (sourceMapComment) {
 							return content.replace(/\n*$/, sourceMapComment);
 						}
-					}));
+					}, "sourceMap"));
 				}
 
 				// 获取缓存中的数据
