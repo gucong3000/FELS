@@ -326,6 +326,45 @@ var defaultOpts = {
 	}
 };
 
+var cacheNotification = {};
+var notifyBasy;
+var notifier = require("node-notifier");
+notifier.on("timeout", function(notifierObject, options) {
+	console.log("timeout");
+	notifyBasy = false;
+	notify();
+});
+
+function notify() {
+	if (notifyBasy) {
+		return;
+	}
+	for (var filePath in cacheNotification) {
+		notifyBasy = true;
+		var opts = cacheNotification[filePath];
+		opts.message = "发现未规范化的代码，点击修复此问题。\n" + filePath;
+		opts.sound = true;
+		opts.time = 5000;
+		opts.wait = true;
+		notifier.notify(opts, function(err, response) {
+			// Response is response from notification
+			if (!err && response === "activate") {
+				fs.writeFile(filePath, opts.newCode, function(err) {
+					if (!err) {
+						gutil.log("文件被自动修复：\n" + filePath);
+					}
+				});
+				delete cacheNotification[filePath];
+				notifyBasy = false;
+				notify();
+			}
+		});
+		return;
+	}
+	notifyBasy = false;
+}
+
+
 /**
  * 代码美化，调用opts.beautify函数美化代码后，如果代码产生变化，弹出气泡提示，如用户点击气泡，则写入新代码到文件
  * @param  {Stream}			stream				包含文件的数据流
@@ -349,21 +388,14 @@ function fileFix(stream, opts) {
 			}
 
 			opts.beautify(code, rc, file).then(newCode => {
-				if (newCode && newCode.trim() !== code.trim()) {
-					var notifier = require("node-notifier");
-					opts.sound = true;
-					opts.wait = true;
-					opts.message = "发现未规范化的代码，点击修复此问题。\n" + filePath;
-					notifier.notify(opts, function(err, response) {
-						// Response is response from notification
-						if (!err && response === "activate") {
-							fs.writeFile(filePath, newCode, function(err) {
-								if (!err) {
-									gutil.log("文件被自动修复：\n" + filePath);
-								}
-							});
-						}
-					});
+				if (newCode) {
+					if (newCode.trim() === code.trim()) {
+						delete cacheNotification[filePath];
+					} else {
+						notify();
+						opts.newCode = newCode.replace(/\n*$/, "\n\n");
+						cacheNotification[filePath] = opts;
+					}
 				}
 			}).catch(err => {
 				console.error(err.stack || err);
@@ -442,6 +474,9 @@ function cssPipe(stream) {
 		}),
 		isDev ? require("postcss-browser-reporter")(stylelintReporterConfig) : null,
 		isDev ? require("postcss-reporter")({
+			formatter: input => {
+				return input.source + " produced " + input.messages.length + " messages";
+			},
 			clearMessages: true
 		}) : null,
 	];

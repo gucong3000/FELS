@@ -180,7 +180,7 @@ if (app.get("env") === "development") {
 
 	// 文件索引页面，
 	app.use(serveIndex(staticRoot, {
-		"icons": false
+		"icons": true
 	}));
 }
 
