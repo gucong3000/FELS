@@ -250,11 +250,17 @@ ${ message }
 			livereload = "livereload";
 
 		}
-		require("child_process").execFile("node", [livereload, "--exts", "node_modules", ".hg", ".git", ".svn"], {
-			cwd: require("path").resolve(staticRoot)
-		}, function(err) {
+		require("child_process").execFile("node", [livereload,"--debug", "--exts", "md", "less", "markdown"], {
+			cwd: require("path").resolve(staticRoot) + "/"
+		}, function(err, stdout, stderr) {
 			if (err) {
 				console.error("缺少node组件，请通过npm命令安装：livereload");
+			}
+			if(stdout){
+				console.log(stdout);
+			}
+			if(stderr){
+				console.log(stderr);
 			}
 		});
 		console.log("\nlivereload\t\t" + 35729);

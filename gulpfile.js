@@ -10,6 +10,11 @@ var uglifyOpt = {
 	}
 };
 
+// 是否汇报错误
+var reporter = false;;
+// 项目根目录设置
+var baseDir;
+
 // gulp 插件引用开始
 // gulp缓存插件，只传递变化了的文件
 var cache = require("gulp-cached");
@@ -258,7 +263,7 @@ contents
 		}
 	}, "AMD、CDM模块封装"));
 
-	if (isDev) {
+	if (isDev && reporter) {
 		// jshint错误汇报
 		stream = stream.pipe(getFile(function(js, file) {
 			if (file.jshint && !file.jshint.success && !file.jshint.ignored && !/[\\/]jquery(?:-\d.*?)?(?:[-\.]min)?.js$/.test(file.path)) {
@@ -329,8 +334,7 @@ var defaultOpts = {
 var cacheNotification = {};
 var notifyBasy;
 var notifier = require("node-notifier");
-notifier.on("timeout", function(notifierObject, options) {
-	console.log("timeout");
+notifier.on("timeout", function() {
 	notifyBasy = false;
 	notify();
 });
@@ -411,6 +415,9 @@ function csscomb(stream) {
 		icon: "https://avatars1.githubusercontent.com/u/38091",
 		"rcName": ".csscomb.json",
 		beautify: function(css, config, file) {
+			var postcss = require("postcss");
+			var removePrefixes = require("postcss-remove-prefixes");
+			css = postcss([removePrefixes()]).process(css).css;
 			var comb = new require("csscomb")(config || "csscomb");
 			return new Promise((resolve) => {
 				resolve(comb.processString(css, {
@@ -472,11 +479,11 @@ function cssPipe(stream) {
 			useHash: true,
 			url: "copy" // or "inline" or "copy"
 		}),
-		isDev ? require("postcss-browser-reporter")(stylelintReporterConfig) : null,
+		isDev && reporter ? require("postcss-browser-reporter")(stylelintReporterConfig) : null,
 		isDev ? require("postcss-reporter")({
-			formatter: input => {
+			formatter: reporter ? input => {
 				return input.source + " produced " + input.messages.length + " messages";
-			},
+			} : undefined,
 			clearMessages: true
 		}) : null,
 	];
@@ -511,7 +518,7 @@ module.exports = (staticRoot, env) => {
 
 	isDev = env === "development";
 
-	staticRoot = staticRoot || process.cwd();
+	baseDir = staticRoot || process.cwd();
 
 	var sendFileCache = {};
 
@@ -550,8 +557,8 @@ module.exports = (staticRoot, env) => {
 			});
 			src._read = function() {
 				this.push(new gutil.File({
-					cwd: staticRoot,
-					base: staticRoot,
+					cwd: baseDir,
+					base: baseDir,
 					path: filename,
 					contents: Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer)
 				}));
@@ -561,7 +568,7 @@ module.exports = (staticRoot, env) => {
 		}
 
 		var pipeFn;
-		filePath = path.resolve(path.join(staticRoot, filePath));
+		filePath = path.resolve(path.join(baseDir, filePath));
 
 		if (sendFileCache[filePath]) {
 			// 如果外部请求的文件正好缓存中有，则发送出去，然后清除缓存中的此文件
