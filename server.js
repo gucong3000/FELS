@@ -2,7 +2,6 @@
 
 "use strict";
 var express = require("express");
-var url = require("url");
 var app = express();
 var serveIndex = require("serve-index");
 var cwd = process.cwd();
@@ -54,6 +53,7 @@ app.get("/*", (req, res, next) => {
 	var combo = req.originalUrl.match(/^(.+?)\?\?+(.+?)$/);
 	var promise;
 	if (combo) {
+		let url = require("url");
 		// combo方式文件请求合并
 		combo = combo[2].split(/\s*,\s*/).map(filePath => url.parse(url.resolve(combo[1], filePath)).pathname);
 		promise = Promise.all(combo.map(readFileByGulp)).then((files) => {
@@ -131,7 +131,7 @@ if (app.get("env") === "development") {
 				// res.send(desc);
 				var request = require("request");
 				var apiurl = "http://api.jslinterrors.com/explain?format=md&message=" + desc.replace(/\.+$/, "");
-				request(url.parse(apiurl).href, function(error, response, body) {
+				request(apiurl, function(error, response, body) {
 					var data;
 					try {
 						data = JSON.parse(body);

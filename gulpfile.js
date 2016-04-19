@@ -1,6 +1,10 @@
 "use strict";
+var gulp = require("gulp");
 var path = require("path");
 var fs = require("fs");
+
+require("graceful-fs").gracefulify(fs);
+
 var gutil = require("gulp-util");
 var through = require("through2");
 var uglifyOpt = {
@@ -11,9 +15,9 @@ var uglifyOpt = {
 };
 
 // 是否汇报错误
-var reporter = false;;
+var reporter = false;
 // 项目根目录设置
-var baseDir;
+var baseDir = process.cwd();
 
 // gulp 插件引用开始
 // gulp缓存插件，只传递变化了的文件
@@ -26,9 +30,8 @@ var plumber = require("gulp-plumber");
 
 var isDev;
 
-
 function getFile(callback, debugname) {
-	return require("through2").obj((file, encoding, cb) => {
+	return through.obj((file, encoding, cb) => {
 		if (file.isNull()) {
 			return cb(null, file);
 		}
@@ -635,7 +638,7 @@ module.exports = (staticRoot, env) => {
 				stream.pipe(remember(filePath))
 
 				// 取出文件内容，返回给外部
-				.pipe(through.obj((file) => {
+				.pipe(through.obj((file, encoding, cb) => {
 					file.etag = require("etag")(file.contents);
 					// 如果获取到的文件正好是外部要获取的文件，则发送给外部
 					if (file.path === filePath) {
@@ -644,9 +647,224 @@ module.exports = (staticRoot, env) => {
 						// 如果获取到的文件是sourceMap之类的文件，先放进缓存，等外部下次请求时发送
 						sendFileCache[file.path] = file;
 					}
+					cb();
 				}));
 			});
 		});
 	}
 	return sendFile;
 };
+
+function fileUploader(configs) {
+	var baseDir = configs.base ? require("url").resolve("/", configs.base.replace(/\/?$/, "/")) : "/";
+	/**
+	 * API 方式文件上传
+	 * @param  {Vinyl} file https://github.com/gulpjs/vinyl
+	 * @return {Promise} 异步操作对象，Promise格式
+	 */
+	return function(fileVinyl) {
+		var filePath = fileVinyl.relative.match(/^(?:(.*)\/)?([^\/]+)$/);
+
+		var configfile = {
+			"path": baseDir + (filePath[1] || ""),
+			"user": configs.user,
+			"password": configs.password,
+			"fileName": filePath[2],
+		};
+		var formData = {
+			configfile: JSON.stringify(configfile),
+			imagefile: {
+				value: fs.createReadStream(fileVinyl.path),
+				options: {
+					filename: filePath[2],
+					contentType: require("mime-types").lookup(filePath[2]),
+				},
+			},
+		};
+		return new Promise((resolve, reject) => {
+			require("request").post({
+				url: configs.url || "http://192.168.20.69:8000/upload",
+				formData: formData
+			}, function(err, httpResponse, body) {
+				if (err) {
+					reject(err);
+				} else {
+					try {
+						body = JSON.parse(body);
+					} catch (ex) {
+						reject(body);
+						return;
+					}
+					if (body.code === 1000) {
+						resolve(body);
+					} else {
+						reject({
+							code: body.code,
+							file: fileVinyl.relative,
+							message: body.info,
+						});
+					}
+				}
+			});
+		});
+	};
+}
+
+// 目录遍历，排除.*、node_modules、*.log
+function fsWalker(rootDir) {
+	rootDir = path.resolve(rootDir);
+
+	function walker(rootDir) {
+		return new Promise((resolve, reject) => {
+			// 遍历当前目录下的子对象
+			fs.readdirAsync(rootDir).then(subNames => {
+				// 储存当前目录下的子目录的遍历Promise对象
+				var subDirs = [];
+				// 储存当前目录下的文件
+				var subFiles = [];
+
+				// 排除.*、node_modules、*.log
+				subNames = subNames.filter(subName => {
+					return !/^(?:node_modules|package\.json|\..*|.*\.log)$/.test(subName);
+				}).map(subName => {
+					var subPath = path.join(rootDir, subName);
+					// 异步获取子对象状态
+					return fs.statAsync(subPath).then(stat => {
+						if (stat.isDirectory()) {
+							// 子对象是个目录，则递归查询
+							subDirs.push(walker(subPath));
+						} else {
+							// 子对象是个文件
+							subFiles.push(subPath);
+						}
+						return stat;
+					});
+				});
+
+				// 等待所有fs.statAsync操作完成
+				Promise.all(subNames).then(() => {
+					// 获取所有子目录的遍历结果
+					Promise.all(subDirs).then(subDirsChilds => {
+						// 将子目录的遍历结果，与当前目录的遍历结果，合为一个数组
+						resolve(subFiles.concat.apply(subFiles, subDirsChilds));
+					}).catch(reject);
+				}).catch(reject);
+			});
+		});
+	}
+
+	// 将最终结果在返回前，将结果包装为对象
+	return walker(rootDir).then(paths => {
+		return paths.map(subDir => {
+			return {
+				base: rootDir,
+				path: subDir,
+				relative: path.relative(rootDir, subDir).replace(/\\/g, "/"),
+			};
+		});
+	});
+}
+
+gulp.task("publish", () => {
+
+	var program = new(require("commander").Command)("gulp publish");
+
+	program
+		.option("--url [url]", "文件上传服务API 默认", String, "http://pic.int.jumei.com/upload")
+		.option("--username [username]", "API用户名", String)
+		.option("--password [password]", "API密码", String)
+		.option("--base [path]", "要上传到远程服务器哪个目录", String, "/")
+		.option("--dir [path]", "要上传本地哪个目录", String, ".")
+		.option("--queue [int]", "上传时并发数", parseInt, 20)
+
+	.parse(process.argv);
+
+
+	if (!program.username || !program.password) {
+		program.help();
+		return;
+	}
+
+	var uploader = fileUploader({
+		"url": program.url,
+		"base": program.base || "/",
+		"user": program.username,
+		"password": program.password,
+	});
+
+	// hg diff -r 59485 -r 59487 --stat
+
+	// 查找本地所有文件"../static_jumei"
+	fsWalker(program.dir).catch(ex => {
+		console.error("文件遍历出错：", ex);
+	}).then(tasks => {
+		console.log("发现" + tasks.length + "个文件");
+		// 进度条
+		var ProgressBar = require("progress");
+		var bar = new ProgressBar("上传中：[:bar] :percent :elapsed秒 已完成：:current", {
+			total: tasks.length,
+			width: 40,
+		});
+
+		var errors = [];
+
+		// 建立任务队列
+		var Queue = require("queue-fun").Queue();
+		var queue = new Queue(program.queue, {
+			// 失败时重试次数
+			retryON: 20,
+			// 失败时搁置
+			retryType: false,
+			// 上传成功
+			event_succ: function() {
+				bar.tick();
+			},
+			// 时报次数超出上限
+			event_err: function(e) {
+				if (e && e.code === 1001) {
+					queue.clear();
+					console.error(e.message || "用户名或密码错误");
+				} else {
+					bar.tick();
+					errors.push(e);
+				}
+			},
+			event_end: function() {
+				errors.forEach(err => {
+					console.error(err.stack || err);
+				});
+			},
+		});
+
+		queue.allArray(tasks, uploader);
+		queue.start();
+	});
+});
+
+/**
+ * 用Promise包装fs对象下的函数
+ * 检查fs中的所有函数，如果拥有名字为xxx函数，又同时拥有名字为xxxSync的函数，则为fs定义一个xxxAsync函数，返回值类型为Promise对象
+ */
+(function(fs) {
+	function addAsyncFn(fnName) {
+		fs[fnName + "Async"] = function() {
+			var args = Array.from(arguments);
+			return new Promise((resolve, reject) => {
+				args.push(function(err, data) {
+					if (err) {
+						reject(err);
+					} else {
+						resolve(data);
+					}
+				});
+				fs[fnName].apply(fs, args);
+			});
+		};
+	}
+
+	for (var fnName in fs) {
+		if (!/a?sync/i.test(fnName) && typeof fs[fnName] === "function" && typeof fs[fnName + "Sync"] === "function" && !(fnName + "Async" in fs)) {
+			addAsyncFn(fnName);
+		}
+	}
+})(fs);
