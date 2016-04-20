@@ -33,13 +33,16 @@ form .input {
 	vertical-align: top;
 	position: relative;
 }
-form button {
+form .button {
+	display: inline-block;
 	position: relative;
 }
-form [type="file"] {
+.button input {
 	pointer-events: none;
 	position: absolute;
 	opacity: 0;
+	bottom: 0;
+	right: 0;
 	left: 0;
 	top: 0;
 }
@@ -100,12 +103,10 @@ form .loading {
 		选择文件
 		<span class="input">
 			<span> 未选择文件 </span>
-			<p>
+			<a href="#" class="button">
 				<input type="file" name="imagefile" multiple>
-				<button>
-					添加文件
-				</button>
-			</p>
+				添加文件
+			</a>
 		</span>
 		<div class="loading">
 			正在上传

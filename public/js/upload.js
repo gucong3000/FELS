@@ -2,25 +2,36 @@
 /* global alert */
 
 (function(factory) {
-	// 判断是否有SB用IE访问
-	if (document.documentMode || !document.querySelector) {
-		alert("不要用IE！不要用IE！不要用IE！");
-		/* jshint ignore:start */
-		// 尝试干掉IE6进程并跳转到 Google Chrome Frame 下载页面
-		location.href = "javascript:for (var i in open);location.href ='http://rj.baidu.com/soft/detail/17803.html?ald'";
-		/* jshint ignore:end */
-	} else if (window.URL) {
+	function addScript(src, callback){
+		var script = document.createElement("script");
+		script.type = "text/javascript";
+		script.src = src;
+		document.documentElement.children[0].appendChild(script);
+		if(callback){
+			script.onload = script.onerror = function() {
+				script.onload = script.onerror = null;
+				callback();
+			};
+		}
+
+	}
+	if(!Array.from){
+		Array.from = function(arr){
+			if(arr){
+				return [].slice.call(arr, 0);
+			}
+		};
+	}
+
+	// 如果不是低版本IE，又没有Promise，则加载兼容库
+	if(!window.Promise && ! (document.documentMode < 11 || !document.querySelector)){
+		addScript("js/polyfill/es6-promise.js");
+	}
+	if (window.URL) {
 		factory();
 	} else {
 		// 加载browser.js，主要是为了统一各浏览器API的名称差异，如webkitURL、mozURL、URL
-		var script = document.createElement("script");
-		script.type = "text/javascript";
-		script.src = "http://gucong3000.github.io/browser.js/browser.min.js";
-		document.documentElement.children[0].appendChild(script);
-		script.onload = script.onerror = function() {
-			script.onload = script.onerror = null;
-			factory();
-		};
+		addScript("http://gucong3000.github.io/browser.js/browser.min.js", factory);
 	}
 })(function() {
 	if (!window.FileReader && !window.URL) {
@@ -247,16 +258,15 @@
 		showFile();
 	});
 
-	// 用户点击“请选择文件”按钮
-	var button = document.querySelector(".input button");
+	// 用户点击“添加文件”按钮
+	var button = document.querySelector(".button");
 	button.addEventListener("click", function(e) {
-		e.preventDefault();
-		inputFile.click();
+		if(e.target === button){
+			// currentTarget
+			e.preventDefault();
+			inputFile.click();
+		}
 	});
-
-	// 将文件上传控件的宽度调整为与“请选择文件”按钮的宽度一致
-	inputFile.style.width = getComputedStyle(button, null).width;
-
 
 	// 拖动上传
 	var rootClassTimer;
