@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>聚美DFS上传</title>
+<style>
+form {
+	text-align: right;
+	margin: 6em auto;
+	width: 960px;
+}
+form label {
+	margin: 1em auto;
+	display: block;
+	zoom: 1;
+}
+form .input,
+form [type="url"],
+form [type="url"],
+form [type="text"],
+form [type="password"] {
+	display: inline-block;
+	text-align: left;
+	margin-left: 1em;
+	width: 800px;
+}
+form .input {
+	word-wrap: break-word;
+	white-space: normal;
+	vertical-align: top;
+	position: relative;
+}
+form button {
+	position: relative;
+}
+form [type="file"] {
+	pointer-events: none;
+	position: absolute;
+	opacity: 0;
+	left: 0;
+	top: 0;
+}
+.input span {
+	display: inline-block;
+	vertical-align: top;
+	max-width: 700px;
+	max-height: 300px;
+	overflow-y: auto;
+}
+.input span span {
+	display: inline-block;
+	vertical-align: baseline;
+	white-space: nowrap;
+	margin: 0 .5em;
+}
+.input sup {
+	margin-left: 5px;
+	cursor: default;
+}
+.input sup:hover {
+	color: red;
+}
+</style>
+</head>
+<body>
+	<form action="http://pic.int.jumei.com/upload" method="post">
+		<label>
+			API
+			<input type="url" name="url" placeholder="请输入文件上传API的url地址，若不填默认pic.int.jumei.com">
+		</label>
+		<label>
+			存放路径
+			<input type="text" name="path" placeholder="请输入服务器端文件存放目录，使用`/`开头的绝对路径" pattern="\/.*" value="/" required>
+		</label>
+		<label>
+			用户名
+			<input type="text" name="user" placeholder="请输入用户名" required>
+		</label>
+		<label>
+			密码
+			<input type="password" name="password" placeholder="请输入密码" required>
+		</label>
+		选择文件
+		<span class="input">
+			<input type="file" name="imagefile" multiple>
+			<button>
+				请选择文件
+			</button>
+			<span> 未选择文件 </span>
+		</span>
+		<div>
+			<input type="submit" value="上传">
+			<input type="reset" value="清空">
+		</div>
+	</form>
+	<script>
+(function() {
+	var selectedFiles = [];
+
+	var warp = document.querySelector("form .input span");
+
+	// 将selectedFiles中的数据，展现在页面上
+	function showFile() {
+		warp.innerHTML = "";
+		selectedFiles.forEach(function(file, i) {
+			var span = document.createElement("span");
+			var link = document.createElement("a");
+			var remove = document.createElement("sup");
+			remove.innerHTML = "X";
+			remove.addEventListener("click", function(e) {
+				e.preventDefault();
+				selectedFiles = selectedFiles.filter(function(otherFile) {
+					return otherFile !== file;
+				});
+				showFile();
+			});
+			link.innerHTML = file.name;
+			if (window.URL) {
+				link.href = URL.createObjectURL(file);
+				link.title = "点击预览";
+				link.target = "_blank";
+			}
+			span.appendChild(link);
+			span.appendChild(remove);
+			warp.appendChild(span);
+		});
+	}
+
+
+	// 用户选择了文件
+	function fileSelect(e) {
+		var target = e ? e.target : inputFile;
+		var sameNames = [];
+		selectedFiles = selectedFiles.concat(Array.from(target.files).filter(function(newFile) {
+			return !selectedFiles.some(function(oldfile) {
+				var same = oldfile.name === newFile.name;
+				if (same) {
+					sameNames.push(oldfile.name);
+				}
+				return same;
+			});
+		}));
+		target.value = "";
+		showFile();
+		if (sameNames.length) {
+			alert("您选择的文件中，有文件名相同的文件，已为您排除：\n" + sameNames.join("\n"))
+		}
+		inputFile.setCustomValidity(selectedFiles.length > 0 ? "" : "至少需要选择一个文件")
+	}
+
+	// 文件选择框
+	var inputFile = document.querySelector("[type='file']")
+	inputFile.addEventListener("change", fileSelect);
+	fileSelect();
+
+	// 表单对象
+	var form = document.querySelector("form")
+
+	// 用户点击“提交”
+	form.addEventListener("submit", function(e) {
+		if (!selectedFiles.length) {
+			alert("")
+
+		}
+		e.preventDefault();
+		var formData = new FormData();
+		var configfile = {
+			"path": form.path.value,
+			"user": form.user.value,
+			"password": form.password.value,
+		};
+		if (selectedFiles.length > 1){
+			selectedFiles.forEach(function(file, i) {
+				formData.append("imagefile[" + i + "]", file);
+			});
+		} else {
+			configfile.fileName = selectedFiles[0].name;
+			formData.append("imagefile", selectedFiles[0]);
+		}
+		formData.append("configfile", JSON.stringify(configfile));
+
+		// ajax请求
+		fetch(form.url.value || form.action, {
+			method: "post",
+			body: formData,
+		})
+
+		.then(function(response) {
+			return response.json();
+		})
+
+		.then(function(json) {
+
+		})
+
+		.catch(function(err) {
+			alert("网络错误");
+			console.error(err);
+		});
+	});
+
+	// 用户点击“清空”
+	form.addEventListener("reset", function(e) {
+		e.preventDefault();
+		selectedFiles = [];
+		showFile();
+	});
+
+	// 用户点击“请选择文件”
+	document.querySelector(".input button").addEventListener("click", function(e) {
+		e.preventDefault();
+		inputFile.click();
+	});
+})();
+	</script>
+</body>
+</html>
