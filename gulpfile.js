@@ -692,20 +692,27 @@ function fileUploader(configs) {
 					try {
 						body = JSON.parse(body);
 					} catch (ex) {
-						reject(body);
+						reject({
+							message: body,
+						});
 						return;
 					}
 					if (body.code === 1000) {
+						body.file = fileVinyl;
 						resolve(body);
 					} else {
 						reject({
 							code: body.code,
-							file: fileVinyl.relative,
 							message: body.info,
 						});
 					}
 				}
 			});
+		}).catch(err => {
+			if (err) {
+				err.file = fileVinyl;
+			}
+			throw err;
 		});
 	};
 }
@@ -735,7 +742,10 @@ function fsWalker(rootDir) {
 							subDirs.push(walker(subPath));
 						} else {
 							// 子对象是个文件
-							subFiles.push(subPath);
+							subFiles.push({
+								path: subPath,
+								stat: stat,
+							});
 						}
 						return stat;
 					});
@@ -755,12 +765,10 @@ function fsWalker(rootDir) {
 
 	// 将最终结果在返回前，将结果包装为对象
 	return walker(rootDir).then(paths => {
-		return paths.map(subDir => {
-			return {
-				base: rootDir,
-				path: subDir,
-				relative: path.relative(rootDir, subDir).replace(/\\/g, "/"),
-			};
+		return paths.map(file => {
+			file.base = rootDir;
+			file.relative = path.relative(rootDir, file.path).replace(/\\/g, "/");
+			return file;
 		});
 	});
 }
@@ -770,12 +778,13 @@ gulp.task("publish", () => {
 	var program = new(require("commander").Command)("gulp publish");
 
 	program
-		.option("--url [url]", "文件上传服务API 默认", String, "http://pic.int.jumei.com/upload")
+		.option("--url [url]", "文件上传服务API", String, "http://pic.int.jumei.com/upload")
 		.option("--username [username]", "API用户名", String)
 		.option("--password [password]", "API密码", String)
 		.option("--base [path]", "要上传到远程服务器哪个目录", String, "/")
 		.option("--dir [path]", "要上传本地哪个目录", String, ".")
 		.option("--queue [int]", "上传时并发数", parseInt, 20)
+		.option("--retry [int]", "上出错时重试次数", parseInt, 20)
 
 	.parse(process.argv);
 
@@ -792,17 +801,31 @@ gulp.task("publish", () => {
 		"password": program.password,
 	});
 
+	function getFileSize(file) {
+		if (file.contents && file.contents.length) {
+			return file.contents.length;
+		} else if (file.stat && file.stat.size) {
+			return file.stat.size;
+		} else {
+			return 0;
+		}
+	}
+
 	// hg diff -r 59485 -r 59487 --stat
 
 	// 查找本地所有文件"../static_jumei"
 	fsWalker(program.dir).catch(ex => {
 		console.error("文件遍历出错：", ex);
-	}).then(tasks => {
-		console.log("发现" + tasks.length + "个文件");
+	}).then(files => {
+		var total = 0;
+		files.forEach(function(file) {
+			total += getFileSize(file);
+		});
+		console.log("发现" + files.length + "个文件，共" + total + "字节。");
 		// 进度条
 		var ProgressBar = require("progress");
-		var bar = new ProgressBar("上传中：[:bar] :percent :elapsed秒 已完成：:current", {
-			total: tasks.length,
+		var bar = new ProgressBar("[:bar] :percent :elapseds :etas", {
+			total: total,
 			width: 40,
 		});
 
@@ -812,31 +835,34 @@ gulp.task("publish", () => {
 		var Queue = require("queue-fun").Queue();
 		var queue = new Queue(program.queue, {
 			// 失败时重试次数
-			retryON: 20,
+			retryON: program.retry,
 			// 失败时搁置
 			retryType: false,
 			// 上传成功
-			event_succ: function() {
-				bar.tick();
+			event_succ: function(data) {
+				bar.tick(getFileSize(data.file));
 			},
 			// 时报次数超出上限
-			event_err: function(e) {
-				if (e && e.code === 1001) {
+			event_err: function(err) {
+				if (err && err.code === 1001) {
 					queue.clear();
-					console.error(e.message || "用户名或密码错误");
+					console.error(err.message);
 				} else {
-					bar.tick();
-					errors.push(e);
+					bar.tick(getFileSize(err.file));
+					errors.push(err);
 				}
 			},
 			event_end: function() {
 				errors.forEach(err => {
-					console.error(err.stack || err);
+					console.error(err.stack || {
+						relative: err.file.relative,
+						message: err.message,
+					});
 				});
 			},
 		});
 
-		queue.allArray(tasks, uploader);
+		queue.allArray(files, uploader);
 		queue.start();
 	});
 });
