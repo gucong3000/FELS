@@ -853,12 +853,10 @@ gulp.task("publish", () => {
 				}
 			},
 			event_end: function() {
-				errors.forEach(err => {
-					console.error(err.stack || {
-						relative: err.file.relative,
-						message: err.message,
-					});
-				});
+				console.error("上传发生错误，请看日志：" + path.resolve("error.log"));
+				fs.writeFile("error.log", require("util").inspect(errors, {
+					showHidden: true
+				}));
 			},
 		});
 
