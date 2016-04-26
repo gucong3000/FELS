@@ -90,6 +90,18 @@ app.get("/*", (req, res, next) => {
 });
 
 // 静态资源
+app.use((req, res, next) => {
+	var mime;
+	try {
+		mime = require("mime-types").lookup(req.path);
+	} catch(ex){
+		
+	}
+	if(mime){
+		res.type(mime);
+	}
+	next();
+});
 app.use(express.static(staticRoot));
 
 // 只有dev环境使用
@@ -103,6 +115,8 @@ if (app.get("env") === "development") {
 		E: "errors",
 	};
 	let apiDataCache = {};
+	require("./jshint-msg");
+
 	app.get("/jshint/*", (req, res, next) => {
 		let msgCode;
 		let desc;
@@ -126,11 +140,11 @@ if (app.get("env") === "development") {
 				render();
 				return;
 			}
-			desc = jshintMsg[msgTypeMap[RegExp.$2]][RegExp.$1].desc.replace(/^.+?→/, "");
+			desc = jshintMsg[msgTypeMap[RegExp.$2]][RegExp.$1].desc;
 			if (desc) {
 				// res.send(desc);
 				var request = require("request");
-				var apiurl = "http://api.jslinterrors.com/explain?format=md&message=" + desc.replace(/\.+$/, "");
+				var apiurl = "http://api.jslinterrors.com/explain?format=md&message=" + desc.replace(/^.+?→/, "").replace(/\.+$/, "");
 				request(apiurl, function(error, response, body) {
 					var data;
 					try {
@@ -151,6 +165,18 @@ if (app.get("env") === "development") {
 			}
 		} else {
 			next();
+		}
+	});
+
+	// 简单的翻墙服务
+	app.use((req, res, next) => {
+		// 翻墙服务，将请求转发到国内镜像服务器
+		if (/((?:[\w-]+\.)*)googleapis\.com$/.test(req.hostname)) {
+			// 这里提供了由360网站卫士CDN驱动的常用前端公共库以及和谐使用Google公共库&字体库的调用方法
+			// see http://libs.useso.com/
+			res.redirect(`http://${ RegExp.$1 || "" }useso.com${ req.originalUrl }`);
+		} else {
+			return next();
 		}
 	});
 
@@ -250,16 +276,16 @@ ${ message }
 			livereload = "livereload";
 
 		}
-		require("child_process").execFile("node", [livereload,"--debug", "--exts", "md", "less", "markdown"], {
+		require("child_process").execFile("node", [livereload, "--debug", "--exts", "md", "less", "markdown"], {
 			cwd: require("path").resolve(staticRoot) + "/"
 		}, function(err, stdout, stderr) {
 			if (err) {
 				console.error("缺少node组件，请通过npm命令安装：livereload");
 			}
-			if(stdout){
+			if (stdout) {
 				console.log(stdout);
 			}
-			if(stderr){
+			if (stderr) {
 				console.log(stderr);
 			}
 		});

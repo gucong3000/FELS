@@ -213,6 +213,8 @@ if (process.env.APPDATA) {
 	var langPath = path.join(globalJshintDir, "language.js");
 	fs.readFile(cliPath, function(err, data) {
 		if (!err) {
+
+			// 修改`jshint/src/cli.js`源代码
 			data = data.toString();
 			var code = `\nrequire("./language");\n`;
 			if (data.indexOf(code) < 0) {
@@ -220,11 +222,12 @@ if (process.env.APPDATA) {
 
 				});
 			}
+
+			// 将本文件复制到`jshint/src/language.js`
+			if (langPath !== __filename) {
+				fs.createReadStream(__filename).pipe(fs.createWriteStream(langPath));
+			}
 		}
 	});
-
-	if (langPath !== __filename) {
-		fs.createReadStream(__filename).pipe(fs.createWriteStream(langPath));
-	}
 }
 module.exports = han;

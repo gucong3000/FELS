@@ -1,17 +1,18 @@
 {
-  "name": "commonjs",
+  "name": "fels",
   "version": "1.0.0",
-  "description": "",
+  "description": "Front End Live Stream",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/gucong3000/CommonJS.git"
   },
-  "author": "",
-  "license": "ISC",
+  "author": "gucong",
+  "license": "MIT",
   "bugs": {
     "url": "https://github.com/gucong3000/CommonJS/issues"
   },
@@ -75,5 +76,9 @@
     "serve-index": "^1.7.3",
     "spdy": "^3.2.3",
     "stylelint": "^5.2.1"
-  }
+  },
+  "keywords": [
+    "build",
+    "fe"
+  ]
 }
