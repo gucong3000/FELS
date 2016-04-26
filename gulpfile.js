@@ -811,6 +811,8 @@ gulp.task("publish", () => {
 		}
 	}
 
+	console.log("正在遍历文件：" + path.resolve(program.dir));
+
 	// hg diff -r 59485 -r 59487 --stat
 
 	// 查找本地所有文件"../static_jumei"
@@ -853,10 +855,12 @@ gulp.task("publish", () => {
 				}
 			},
 			event_end: function() {
-				console.error("上传发生错误，请看日志：" + path.resolve("error.log"));
-				fs.writeFile("error.log", require("util").inspect(errors, {
-					showHidden: true
-				}));
+				if(errors.length) {
+					console.error("上传发生错误，请看日志：" + path.resolve("error.log"));
+					fs.writeFile("error.log", require("util").inspect(errors, {
+						showHidden: true
+					}));
+				}
 			},
 		});
 
