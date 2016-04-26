@@ -109,6 +109,8 @@ var stylelintReporterConfig = {
 		"text-shadow": "0 1px #A82734"
 	}
 };
+
+/*
 var jsModule = getFile((content, file) => {
 	// 模块加载器、非js模块普通文件，cmd规范模块，不作处理
 	if (/\/common(?:\Wmin)?\.js$/.test(file.path) || !/\b(?:define\(|module|exports|require\()\b/.test(content) || /\bdefine\.cmd\b/.test(content)) {
@@ -154,6 +156,7 @@ ${ content }
 });`;
 	return content;
 }, "jsModule");
+*/
 
 /**
  * 检查代码去除块注释后、合并连续换行符之后，还有有几行
@@ -343,10 +346,7 @@ notifier.on("timeout", function() {
 });
 
 function notify() {
-	if (notifyBasy) {
-		return;
-	}
-	for (var filePath in cacheNotification) {
+	function show(filePath) {
 		notifyBasy = true;
 		var opts = cacheNotification[filePath];
 		opts.message = "发现未规范化的代码，点击修复此问题。\n" + filePath;
@@ -366,6 +366,13 @@ function notify() {
 				notify();
 			}
 		});
+	}
+
+	if (notifyBasy) {
+		return;
+	}
+	for (var filePath in cacheNotification) {
+		show(filePath);
 		return;
 	}
 	notifyBasy = false;
@@ -655,6 +662,21 @@ module.exports = (staticRoot, env) => {
 	return sendFile;
 };
 
+/**
+ * 获取文件size
+ * @param  {Vinyl} file 要获取size的文件
+ * @return {int}   文件size，单位字节
+ */
+function getFileSize(file) {
+	if (file.contents && file.contents.length) {
+		return file.contents.length;
+	} else if (file.stat && file.stat.size) {
+		return file.stat.size;
+	} else {
+		return 0;
+	}
+}
+
 function fileUploader(configs) {
 	var baseDir = configs.base ? require("url").resolve("/", configs.base.replace(/\/?$/, "/")) : "/";
 	/**
@@ -773,7 +795,150 @@ function fsWalker(rootDir) {
 	});
 }
 
-gulp.task("publish", () => {
+var repTypeCache = {};
+
+/**
+ * 获取本地文件夹个代码仓库类型
+ * @param  {String} dir 文件夹路径
+ * @return Promise     Promise对象的返回值为的"git"或"hg"
+ */
+function getRepType(dir) {
+	var repType = repTypeCache[dir];
+
+	if (!repType) {
+		repType = fs.statAsync(path.join(dir, ".git"))
+
+		.then(stat => {
+			if (stat.isDirectory()) {
+				return "git";
+			} else {
+				throw new Error("不是git项目");
+			}
+		})
+
+		.catch(() => {
+			return fs.statAsync(path.join(dir, ".hg"))
+
+			.then(stat => {
+				if (stat.isDirectory()) {
+					return "hg";
+				} else {
+					throw new Error("不是hg项目");
+				}
+			});
+
+		});
+		repTypeCache[dir] = repType;
+	}
+	return repType;
+}
+
+/**
+ * 利用代码仓库tag，获取最近修改过的文件列表
+ * @param  {String} dir 代码仓库所在文件夹
+ * @param  {String} tag tag名称
+ * @return Promise     Promise对象的返回值为 {Vinyl[]} 数组 https://github.com/gulpjs/vinyl
+ */
+function diff(dir, tag) {
+	dir = path.resolve(dir);
+
+	return getRepType(dir)
+
+	.then((repType) => {
+		// 运行git或者HG命令
+		var cmd;
+		var regSplit;
+		if (repType === "git") {
+			// git 命令，获取版本差异
+			cmd = `git diff ${ tag } --name-only`;
+			// 用于分隔git命令返回数据为数组的正则
+			regSplit = /\s*\r?\n\s*/g;
+		} else if (repType === "hg") {
+			// hg 命令，获取版本差异
+			cmd = `hg diff -r ${ tag } --stat`;
+			// 用于分隔hg命令返回数据为数组的正则
+			regSplit = /\s+\|\s+(?:\d+\s[+-]+|\w+\s*)\r?\n\s*/g;
+		} else {
+			// 未来可能扩展其他类型代码库
+			return repType;
+		}
+
+		// 启动进程获取命令行结果。注意hg下不使用execSync而使用exec，结果会直接输出到控制台，拿不到结果
+		var files = require("child_process").execSync(cmd, {
+			cwd: dir
+		}).toString().trim();
+
+		if (repType === "hg") {
+			// "hg的输出结果有`2228 files changed, 61157 insertions(+), 1857 deletions(-)`这样一行，删掉"
+			files = files.replace(/\s+\d+\s+files\s+changed,\s+\d+\s+insertions\(\+\),\s+\d+\s+deletions\(-\)\s*$/, "\n");
+		}
+		files = files.split(regSplit);
+
+		files = files.filter(subPath => {
+			// 排除.*、node_modules、*.log，空行
+			return subPath && !/(?:^|\/)(?:node_modules|package\.json|\..*|.*\.log)(?:\/|$)/.test(subPath) && !/(?:^|\/)/.test(subPath);
+		});
+
+		// 将文件相对路径数组转换成Vinyl数组
+		files = files.map(subPath => {
+			var filePath = path.join(dir, subPath);
+			return fs.statAsync(filePath)
+				.then(stat => {
+					return {
+						base: dir,
+						path: filePath,
+						relative: subPath,
+						stat: stat,
+					};
+				}).catch(() => {
+					return null;
+				});
+		});
+
+		// 将整个数组转化为Promise对象
+		files = Promise.all(files)
+
+		// 过滤数组中的空文件
+		.then(files => files.filter(file => file));
+		return files;
+	});
+}
+
+/**
+ * 对代码库打tag
+ * @param {String} dir 版本库所在的文件夹
+ * @param {String} tag tag名字
+ */
+function addTag(dir, tag) {
+	dir = path.resolve(dir);
+
+	return getRepType(dir)
+
+	.then(repType => {
+		var cmds;
+		if (repType === "git") {
+			cmds = [
+				`git tag -f -a ${ tag } -m "by FELS"`,
+				`git push origin --delete tag ${ tag }`,
+				"git push --tags"
+			];
+		} else if (repType === "hg") {
+			cmds = [
+				`hg tag -f -m "by FELS" ${ tag }`,
+				"hg push -f"
+			];
+		}
+
+		return cmds.map(function(cmd) {
+			return require("child_process").execSync(cmd, {
+				cwd: dir
+			}).toString();
+		});
+
+	});
+}
+
+gulp.task("publish", (cb) => {
 
 	var program = new(require("commander").Command)("gulp publish");
 
@@ -781,13 +946,13 @@ gulp.task("publish", () => {
 		.option("--url [url]", "文件上传服务API", String, "http://pic.int.jumei.com/upload")
 		.option("--username [username]", "API用户名", String)
 		.option("--password [password]", "API密码", String)
+		.option("--diff [git/hg tag]", "与指定的git或hg tag比较差异")
 		.option("--base [path]", "要上传到远程服务器哪个目录", String, "/")
 		.option("--dir [path]", "要上传本地哪个目录", String, ".")
 		.option("--queue [int]", "上传时并发数", parseInt, 20)
 		.option("--retry [int]", "上出错时重试次数", parseInt, 20)
 
 	.parse(process.argv);
-
 
 	if (!program.username || !program.password) {
 		program.help();
@@ -801,29 +966,29 @@ gulp.task("publish", () => {
 		"password": program.password,
 	});
 
-	function getFileSize(file) {
-		if (file.contents && file.contents.length) {
-			return file.contents.length;
-		} else if (file.stat && file.stat.size) {
-			return file.stat.size;
-		} else {
-			return 0;
-		}
+	var getFiles;
+	if (program.diff) {
+		console.log("正在查询与上一版本的文件差异");
+		getFiles = diff(program.dir, program.diff)
+
+		.catch(ex => {
+			console.error("获取代码库版本差异出错：", ex);
+		});
+	} else {
+		console.log("正在遍历文件：" + path.resolve(program.dir));
+		getFiles = fsWalker(program.dir)
+
+		.catch(ex => {
+			console.error("文件遍历出错：", ex);
+		});
 	}
 
-	console.log("正在遍历文件：" + path.resolve(program.dir));
-
-	// hg diff -r 59485 -r 59487 --stat
-
-	// 查找本地所有文件"../static_jumei"
-	fsWalker(program.dir).catch(ex => {
-		console.error("文件遍历出错：", ex);
-	}).then(files => {
+	getFiles.then(files => {
 		var total = 0;
 		files.forEach(function(file) {
 			total += getFileSize(file);
 		});
-		console.log("发现" + files.length + "个文件，共" + total + "字节。");
+		console.log("需要上传" + files.length + "个文件，共" + total + "字节。");
 		// 进度条
 		var ProgressBar = require("progress");
 		var bar = new ProgressBar("[:bar] :percent :elapseds :etas", {
@@ -855,11 +1020,29 @@ gulp.task("publish", () => {
 				}
 			},
 			event_end: function() {
-				if(errors.length) {
-					console.error("上传发生错误，请看日志：" + path.resolve("error.log"));
+				if (errors.length) {
+					console.error("\n上传发生错误，请看日志：" + path.resolve("error.log"));
 					fs.writeFile("error.log", require("util").inspect(errors, {
 						showHidden: true
-					}));
+					}), cb);
+				} else {
+					console.log("上传完毕。");
+					if (program.diff) {
+						console.log("正在同步tag：", program.diff);
+
+						addTag(program.dir, program.diff)
+
+						.catch(error => {
+							console.error("tag同步出错：", error);
+						})
+
+						.then(() => {
+							console.log("tag同步成功：", program.diff);
+							cb();
+						});
+					} else {
+						cb();
+					}
 				}
 			},
 		});
