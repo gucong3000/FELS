@@ -734,6 +734,20 @@ function getFileSize(file) {
 	}
 }
 
+/**
+ * 字节数目转化为描述大小的字符，如`20MB`、`15KB`
+ * @param  {Int} 	byte 字节数
+ * @return {String}      文件大小描述字符串
+ */
+function byteStringify(byte) {
+	var units = ["B", "KB", "MB", "GB", "TB"];
+	while (byte >= 1024 && units.length > 1) {
+		byte /= 1024;
+		units.shift();
+	}
+	return String(byte).replace(/(\.\d{3})\d+/, "$1") + units.shift();
+}
+
 function fileUploader(configs) {
 	var baseDir = configs.base ? require("url").resolve("/", configs.base.replace(/\/?$/, "/")) : "/";
 	/**
@@ -1024,15 +1038,7 @@ gulp.task("publish", (cb) => {
 		"password": program.password,
 	});
 
-	var getFiles;
-	if (program.diff) {
-		console.log("正在查询与上一版本的文件差异");
-		getFiles = diff(program.dir, program.diff)
-
-		.catch(ex => {
-			console.error("获取代码库版本差异出错：", ex);
-		});
-	} else {
+	function getFsWalker() {
 		console.log("正在遍历文件：" + path.resolve(program.dir));
 		getFiles = fsWalker(program.dir)
 
@@ -1041,12 +1047,25 @@ gulp.task("publish", (cb) => {
 		});
 	}
 
+	var getFiles;
+	if (program.diff) {
+		console.log("正在查询与上一版本的文件差异");
+		getFiles = diff(program.dir, program.diff)
+
+		.catch(ex => {
+			console.error("获取代码库版本差异出错：", ex);
+			return getFsWalker();
+		});
+	} else {
+		getFsWalker();
+	}
+
 	getFiles.then(files => {
 		var total = 0;
 		files.forEach(function(file) {
 			total += getFileSize(file);
 		});
-		console.log("需要上传" + files.length + "个文件，共" + total + "字节。");
+		console.log("需要上传" + files.length + "个文件，共" + byteStringify(total) + "。");
 		// 进度条
 		var ProgressBar;
 		var bar;
