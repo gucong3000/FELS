@@ -1142,11 +1142,17 @@ gulp.task("publish", (cb) => {
 						cb();
 					}
 				} else if (errors.length) {
-					if (bar) {
+					if (program.ci) {
+						// ci模式下不允许失败，重复尝试
+						queue.allArray(errors.filter(err => err && err.file).map(err => err.file), uploader);
+						queue.start();
+					} else if (bar) {
 						console.error("\n上传发生错误，请看日志：" + path.resolve("error.log"));
 						fs.writeFile("error.log", require("util").inspect(errors, {
 							showHidden: true
 						}), cb);
+					} else {
+						cb();
 					}
 				}
 			},
