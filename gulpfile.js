@@ -1080,7 +1080,7 @@ gulp.task("publish", (cb) => {
 					var newPercent = Number(tick / total).toFixed(2);
 					if (newPercent !== percent) {
 						percent = newPercent;
-						console.log(percent.slice(2) + "%");
+						console.log(percent.replace(/^\d+\.(\d+)/, "$1%"));
 					}
 				}
 			},
