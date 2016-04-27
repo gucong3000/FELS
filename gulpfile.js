@@ -1062,6 +1062,7 @@ gulp.task("publish", (cb) => {
 	}
 
 	getFiles.then(files => {
+		var succCount = 0;
 		var total = 0;
 		files.forEach(function(file) {
 			total += getFileSize(file);
@@ -1088,11 +1089,12 @@ gulp.task("publish", (cb) => {
 		var Queue = require("queue-fun").Queue();
 		var queue = new Queue(program.queue, {
 			// 失败时重试次数
-			retryON: program.retry || (program.ci ? 800 : 20),
+			retryON: program.retry || (program.ci ? 9999 : 20),
 			// 失败时搁置
 			retryType: false,
 			// 上传成功
 			event_succ: function(data) {
+				succCount++;
 				if (bar) {
 					bar.tick(getFileSize(data.file));
 				} else {
@@ -1120,14 +1122,7 @@ gulp.task("publish", (cb) => {
 				errors.push(err);
 			},
 			event_end: function() {
-				if (errors.length) {
-					if (bar) {
-						console.error("\n上传发生错误，请看日志：" + path.resolve("error.log"));
-						fs.writeFile("error.log", require("util").inspect(errors, {
-							showHidden: true
-						}), cb);
-					}
-				} else {
+				if (succCount >= files.length) {
 					console.log("上传完毕。");
 					if (program.diff) {
 						console.log("正在同步tag：", program.diff);
@@ -1145,6 +1140,13 @@ gulp.task("publish", (cb) => {
 						});
 					} else {
 						cb();
+					}
+				} else if (errors.length) {
+					if (bar) {
+						console.error("\n上传发生错误，请看日志：" + path.resolve("error.log"));
+						fs.writeFile("error.log", require("util").inspect(errors, {
+							showHidden: true
+						}), cb);
 					}
 				}
 			},
