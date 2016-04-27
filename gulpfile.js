@@ -1040,11 +1040,12 @@ gulp.task("publish", (cb) => {
 
 	function getFsWalker() {
 		console.log("正在遍历文件：" + path.resolve(program.dir));
-		getFiles = fsWalker(program.dir)
+		var getFiles = fsWalker(program.dir)
 
 		.catch(ex => {
 			console.error("文件遍历出错：", ex);
 		});
+		return getFiles;
 	}
 
 	var getFiles;
@@ -1053,11 +1054,11 @@ gulp.task("publish", (cb) => {
 		getFiles = diff(program.dir, program.diff)
 
 		.catch(ex => {
-			console.error("获取代码库版本差异出错：", ex);
+			console.error("获取代码库版本差异出错：", ex.message);
 			return getFsWalker();
 		});
 	} else {
-		getFsWalker();
+		getFiles = getFsWalker();
 	}
 
 	getFiles.then(files => {
@@ -1133,13 +1134,13 @@ gulp.task("publish", (cb) => {
 
 						addTag(program.dir, program.diff)
 
-						.catch(error => {
-							console.error("tag同步出错：", error);
+						.then(() => {
+							console.log("tag同步成功：", program.diff);
 							cb();
 						})
 
-						.then(() => {
-							console.log("tag同步成功：", program.diff);
+						.catch(error => {
+							console.error("tag同步出错：", error.message);
 							cb();
 						});
 					} else {
