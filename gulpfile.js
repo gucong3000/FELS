@@ -788,7 +788,7 @@ function fileUploader(configs) {
 				}
 			});
 		}).catch(err => {
-			if (err) {
+			if (err && !err.file) {
 				err.file = fileVinyl;
 			}
 			throw err;
@@ -1007,8 +1007,8 @@ gulp.task("publish", (cb) => {
 		.option("--base [path]", "要上传到远程服务器哪个目录", String, "/")
 		.option("--dir [path]", "要上传本地哪个目录", String, ".")
 		.option("--queue [int]", "上传时并发数", parseInt, 20)
-		.option("--retry [int]", "上出错时重试次数", parseInt, 20)
-		.option("--showlog", "用日志代替进度条")
+		.option("--retry [int]", "上出错时重试次数", parseInt)
+		.option("--ci", "自动构建模式")
 
 	.parse(process.argv);
 
@@ -1052,7 +1052,7 @@ gulp.task("publish", (cb) => {
 		var bar;
 
 
-		if (!program.showlog) {
+		if (!program.ci) {
 			// 进度条
 			ProgressBar = require("progress");
 			bar = new ProgressBar("[:bar] :percent :elapseds :etas", {
@@ -1068,7 +1068,7 @@ gulp.task("publish", (cb) => {
 		var Queue = require("queue-fun").Queue();
 		var queue = new Queue(program.queue, {
 			// 失败时重试次数
-			retryON: program.retry,
+			retryON: program.retry || (program.ci ? 800 : 20),
 			// 失败时搁置
 			retryType: false,
 			// 上传成功
