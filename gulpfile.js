@@ -777,7 +777,10 @@ function fileUploader(configs) {
 		return new Promise((resolve, reject) => {
 			require("request").post({
 				url: configs.url || "http://192.168.20.69:8000/upload",
-				formData: formData
+				formData: formData,
+				headers: {
+					"Connection": "Close"
+				}
 			}, function(err, httpResponse, body) {
 				if (err) {
 					reject(err);
