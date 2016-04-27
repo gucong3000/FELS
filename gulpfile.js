@@ -1106,7 +1106,7 @@ gulp.task("publish", (cb) => {
 					}
 				}
 			},
-			// 时报次数超出上限
+			// 报错次数超出上限
 			event_err: function(err) {
 				if (err && err.code === 1001) {
 					queue.clear();
@@ -1144,7 +1144,7 @@ gulp.task("publish", (cb) => {
 				} else if (errors.length) {
 					if (program.ci) {
 						// ci模式下不允许失败，重复尝试
-						queue.allArray(errors.filter(err => err && err.file).map(err => err.file), uploader);
+						queue.allArray(errors.filter(err => err && err.file && err.message !== "imagefile is empty").map(err => err.file), uploader);
 						queue.start();
 					} else if (bar) {
 						console.error("\n上传发生错误，请看日志：" + path.resolve("error.log"));
