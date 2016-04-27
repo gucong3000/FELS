@@ -15,7 +15,7 @@ var uglifyOpt = {
 };
 
 // 是否汇报错误
-var reporter = false;
+var reporter = true;
 // 项目根目录设置
 var baseDir = process.cwd();
 
@@ -30,21 +30,17 @@ var plumber = require("gulp-plumber");
 
 var isDev;
 
+/**
+ * 将函数处理为文件数据流处理函数
+ * @param  {Function} callback  [description]
+ * @param  {[type]}   debugname [description]
+ * @return {[type]}             [description]
+ */
 function getFile(callback, debugname) {
 	return through.obj((file, encoding, cb) => {
-		if (file.isNull()) {
-			return cb(null, file);
-		}
-
-		if (file.isStream()) {
-			return cb(new Error("Streaming not supported"));
-		}
-
-		var content;
-		try {
-			content = callback(file.contents.toString(), file);
-		} catch (err) {
-			return cb(new gutil.PluginError(debugname, file.path + ": " + (err.message || err.msg || "unspecified error"), {
+		function sendError(err) {
+			// 将异常信息转化为gulp格式
+			cb(new gutil.PluginError(debugname, file.path + ": " + (err.message || err.msg || "unspecified error"), {
 				fileName: file.path,
 				lineNumber: err.line,
 				stack: err.stack,
@@ -52,10 +48,40 @@ function getFile(callback, debugname) {
 			}));
 		}
 
-		if (content) {
-			file.contents = new Buffer(content);
+		// 将处理结果传回文件数据流
+		function sendResult(content) {
+			if (content) {
+				file.contents = new Buffer(content);
+			}
+			cb(null, file);
 		}
-		cb(null, file);
+
+		if (file.isNull()) {
+			return cb(null, file);
+		}
+
+		if (file.isStream()) {
+			return sendError(new Error("Streaming not supported"));
+		}
+
+		var content;
+		try {
+			content = callback(file.contents.toString(), file);
+		} catch (err) {
+			return sendError(err);
+		}
+
+		if (content) {
+			if (content.then && content.catch) {
+				content.then(sendResult)
+
+				.catch(sendError);
+			} else {
+				sendResult(content);
+			}
+		} else {
+			cb(null, file);
+		}
 	});
 }
 
@@ -77,7 +103,6 @@ var stylelintConfig = {
 		"property-no-vendor-prefix": true,
 		"selector-list-comma-space-before": "never",
 		"selector-list-comma-newline-after": "always",
-		"selector-no-id": true,
 		"string-quotes": "double",
 		"value-no-vendor-prefix": true
 	}
@@ -242,7 +267,7 @@ function jsBrowserReporter(errors, path) {
 function jsPipe(stream) {
 	if (isDev) {
 		// js代码美化
-		stream = jsBeautify(stream);
+		stream = jsBeautify(stream, true);
 		// js 代码风格检查
 		var jshint = require("gulp-jshint");
 
@@ -378,52 +403,78 @@ function notify() {
 	notifyBasy = false;
 }
 
-
 /**
- * 代码美化，调用opts.beautify函数美化代码后，如果代码产生变化，弹出气泡提示，如用户点击气泡，则写入新代码到文件
+ * 代码美化，调用opts.beautify函数美化代码后，如果代码产生变化，则修改源代码
  * @param  {Stream}			stream				包含文件的数据流
  * @param  {String}			[opts.rcName]		配置文件文件名，供rcloader组件加载配置用
  * @param  {Function}		[opts.beautify]		代码美化函数，参数三个，{String}旧代码、{Object}rcloader找到的配置、{vinyl}文件对象
- * @param  {String}			[opts.title]		弹出的气泡的标题
- * @param  {Buffer|String}	[opts.icon]			弹出的气泡提示中的图片，可谓文件内容的buffer，或文件路径、或文件url
+ * @param  {String}			[opts.title]		代码美化的行为的名字，用于气泡提示的标题和报错信息中
+ * @param  {Buffer|String}	[opts.icon]			弹出的气泡提示中的图片，可为文件内容的buffer，或文件路径、或文件url
+ * @param  {Boolean}		[opts.lazy]			值为真时，美化后的代码写入stream，否则调用气泡提示，待用户点击后写入新代码到文件
  * @return {Stream}			stream				原样返回的stream，与原始值一样
  */
-function fileFix(stream, opts) {
+function codeBeautify(stream, opts) {
 	return stream.pipe(getFile(function(code, file) {
 		var rcLoader = rcCache[opts.rcName] || (rcCache[opts.rcName] = new RcLoader(opts.rcName, defaultOpts[opts.rcName] || (defaultOpts[opts.rcName] = {}), {
 			loader: "async"
 		}));
 
 		var filePath = file.path;
-		rcLoader.for(filePath, function(err, rc) {
 
-			if (err) {
-				rc = defaultOpts[opts.rcName];
-			}
-
-			opts.beautify(code, rc, file).then(newCode => {
-				if (newCode) {
-					if (newCode.trim() === code.trim()) {
-						delete cacheNotification[filePath];
-					} else {
-						notify();
-						opts.newCode = newCode.replace(/\n*$/, "\n\n");
-						cacheNotification[filePath] = opts;
-					}
+		function lazyResult(resolve) {
+			rcLoader.for(filePath, function(err, rc) {
+				if (err) {
+					rc = defaultOpts[opts.rcName];
 				}
-			}).catch(err => {
-				console.error(err.stack || err);
+				opts.beautify(code, rc, file).then(newCode => {
+					// 是否生成了新代码
+					if (newCode) {
+						// 新代码与老代码是否相同
+						if (newCode.trim() === code.trim()) {
+							delete cacheNotification[filePath];
+						} else {
+							// 为新代码文件结尾添加一个空行
+							newCode = newCode.replace(/\n*$/, "\n\n");
+							// Promise方式返回新代码
+							if (resolve) {
+								resolve(newCode);
+							} else {
+								opts.newCode = newCode;
+								cacheNotification[filePath] = opts;
+								notify();
+							}
+							return;
+						}
+					}
+					// Promise方式返回新代码
+					if (resolve) {
+						resolve();
+					}
+				}).catch(err => {
+					console.error(err.stack || err);
+				});
 			});
-		});
+		}
+		if (opts.lazy) {
+			lazyResult();
+		} else {
+			return new Promise(lazyResult);
+		}
 	}, opts.title));
 }
 
-/* CSS代码美化 */
-function csscomb(stream) {
-	return fileFix(stream, {
-		title: "js-beautify",
+/**
+ * CSS代码美化
+ * @param  {Stream} stream 文件数据流
+ * @param  {Booleab} lazy  设置为true时，美化后的代码等待用户点击气泡提示后写入文件，否则，将美化后的代码写入文件数据流
+ * @return {Stream}        数据流
+ */
+function cssBeautify(stream, lazy) {
+	return codeBeautify(stream, {
+		title: "css beautify",
 		icon: "https://avatars1.githubusercontent.com/u/38091",
 		"rcName": ".csscomb.json",
+		lazy: lazy,
 		beautify: function(css, config, file) {
 			var postcss = require("postcss");
 			var removePrefixes = require("postcss-remove-prefixes");
@@ -439,12 +490,18 @@ function csscomb(stream) {
 	});
 }
 
-/* js代码美化 */
-function jsBeautify(stream) {
-	return fileFix(stream, {
-		title: "js-beautify",
+/**
+ * js代码美化
+ * @param  {Stream} stream 文件数据流
+ * @param  {Booleab} lazy  设置为true时，美化后的代码等待用户点击气泡提示后写入文件，否则，将美化后的代码写入文件数据流
+ * @return {Stream}        文件数据流
+ */
+function jsBeautify(stream, lazy) {
+	return codeBeautify(stream, {
+		title: "js beautify",
 		icon: "https://avatars1.githubusercontent.com/u/38091",
 		"rcName": ".jsbeautifyrc",
+		lazy: lazy,
 		beautify: function(js, config, file) {
 			return new Promise((resolve, reject) => {
 				var fileIgnored = require("gulp-jshint/src/fileIgnored");
@@ -500,7 +557,7 @@ function cssPipe(stream) {
 
 	if (isDev) {
 		// CSS代码美化
-		stream = csscomb(stream);
+		stream = cssBeautify(stream, true);
 	} else {
 		// css sourcemaps初始化
 		stream = stream.pipe(require("gulp-sourcemaps").init());
@@ -946,11 +1003,12 @@ gulp.task("publish", (cb) => {
 		.option("--url [url]", "文件上传服务API", String, "http://pic.int.jumei.com/upload")
 		.option("--username [username]", "API用户名", String)
 		.option("--password [password]", "API密码", String)
-		.option("--diff [git/hg tag]", "与指定的git或hg tag比较差异")
+		.option("--diff [git/hg tag]", "与指定的git或hg tag比较差异", String, "")
 		.option("--base [path]", "要上传到远程服务器哪个目录", String, "/")
 		.option("--dir [path]", "要上传本地哪个目录", String, ".")
 		.option("--queue [int]", "上传时并发数", parseInt, 20)
 		.option("--retry [int]", "上出错时重试次数", parseInt, 20)
+		.option("--showlog", "用日志代替进度条")
 
 	.parse(process.argv);
 
@@ -990,13 +1048,21 @@ gulp.task("publish", (cb) => {
 		});
 		console.log("需要上传" + files.length + "个文件，共" + total + "字节。");
 		// 进度条
-		var ProgressBar = require("progress");
-		var bar = new ProgressBar("[:bar] :percent :elapseds :etas", {
-			total: total,
-			width: 40,
-		});
+		var ProgressBar;
+		var bar;
 
+
+		if (!program.showlog) {
+			// 进度条
+			ProgressBar = require("progress");
+			bar = new ProgressBar("[:bar] :percent :elapseds :etas", {
+				total: total,
+				width: 40,
+			});
+		}
 		var errors = [];
+		var tick = 0;
+		var percent;
 
 		// 建立任务队列
 		var Queue = require("queue-fun").Queue();
@@ -1007,7 +1073,16 @@ gulp.task("publish", (cb) => {
 			retryType: false,
 			// 上传成功
 			event_succ: function(data) {
-				bar.tick(getFileSize(data.file));
+				if (bar) {
+					bar.tick(getFileSize(data.file));
+				} else {
+					tick += getFileSize(data.file);
+					var newPercent = Number(tick / total).toFixed(2);
+					if (newPercent !== percent) {
+						percent = newPercent;
+						console.log(percent.slice(2) + "%");
+					}
+				}
 			},
 			// 时报次数超出上限
 			event_err: function(err) {
@@ -1015,16 +1090,23 @@ gulp.task("publish", (cb) => {
 					queue.clear();
 					console.error(err.message);
 				} else {
-					bar.tick(getFileSize(err.file));
-					errors.push(err);
+					if (bar) {
+						bar.tick(getFileSize(err.file));
+					} else {
+						tick += getFileSize(err.file);
+						console.error(err.message || err.code || err, err.file ? err.file.relative : "");
+					}
 				}
+				errors.push(err);
 			},
 			event_end: function() {
 				if (errors.length) {
-					console.error("\n上传发生错误，请看日志：" + path.resolve("error.log"));
-					fs.writeFile("error.log", require("util").inspect(errors, {
-						showHidden: true
-					}), cb);
+					if (bar) {
+						console.error("\n上传发生错误，请看日志：" + path.resolve("error.log"));
+						fs.writeFile("error.log", require("util").inspect(errors, {
+							showHidden: true
+						}), cb);
+					}
 				} else {
 					console.log("上传完毕。");
 					if (program.diff) {
@@ -1034,6 +1116,7 @@ gulp.task("publish", (cb) => {
 
 						.catch(error => {
 							console.error("tag同步出错：", error);
+							cb();
 						})
 
 						.then(() => {
