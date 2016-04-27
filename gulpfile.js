@@ -811,7 +811,7 @@ function fsWalker(rootDir) {
 
 				// 排除.*、node_modules、*.log
 				subNames = subNames.filter(subName => {
-					return !/^(?:node_modules|package\.json|\..*|.*\.log)$/.test(subName);
+					return !/^(?:node_modules|package\.json|gulpfile\.js|gruntfile\.js|\..*|.*\.log)$/i.test(subName);
 				}).map(subName => {
 					var subPath = path.join(rootDir, subName);
 					// 异步获取子对象状态
@@ -933,7 +933,7 @@ function diff(dir, tag) {
 
 		files = files.filter(subPath => {
 			// 排除.*、node_modules、*.log，空行
-			return subPath && !/(?:^|\/)(?:node_modules|package\.json|\..*|.*\.log)(?:\/|$)/.test(subPath) && !/(?:^|\/)/.test(subPath);
+			return subPath && !/(?:^|\/)(?:node_modules|package\.json|gulpfile\.js|gruntfile\.js|\..*|.*\.log)(?:\/|$)/i.test(subPath) && !/(?:^|\/)/.test(subPath);
 		});
 
 		// 将文件相对路径数组转换成Vinyl数组
