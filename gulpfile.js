@@ -72,13 +72,7 @@ function getFile(callback, debugname) {
 		}
 
 		if (content) {
-			if (content.then && content.catch) {
-				content.then(sendResult)
-
-				.catch(sendError);
-			} else {
-				sendResult(content);
-			}
+			Promise.reject(content).then(sendResult).catch(sendError);
 		} else {
 			cb(null, file);
 		}
@@ -286,7 +280,7 @@ function jsPipe(stream) {
 	// .pipe(require("gulp-ng-annotate")());
 
 	// AMD、CDM模块封装
-	stream = stream.pipe(getFile(function(contents, file) {
+	stream = stream.pipe(getFile((contents, file) => {
 		if (!/\bdefine\(/i.test(contents) && (/\brequire\(/i.test(contents) || /(?:\bmodule|exports)\s*=[^=]/i.test(contents))) {
 			return `(function(f){typeof define==="function"?define("/${ file.relative.replace(/\\/g, "/") }",f):f()})(function(require,exports,module){${
 contents
@@ -296,7 +290,7 @@ contents
 
 	if (isDev && reporter) {
 		// jshint错误汇报
-		stream = stream.pipe(getFile(function(js, file) {
+		stream = stream.pipe(getFile((js, file) => {
 			if (file.jshint && !file.jshint.success && !file.jshint.ignored && !/[\\/]jquery(?:-\d.*?)?(?:[-\.]min)?.js$/.test(file.path)) {
 				var uri = JSON.stringify("/" + file.relative.replace(/\\/g, "/"));
 				var errors = JSON.stringify(file.jshint.results.map(result => [result.error.reason, result.error.line, result.error.character]));
@@ -414,7 +408,7 @@ function notify() {
  * @return {Stream}			stream				原样返回的stream，与原始值一样
  */
 function codeBeautify(stream, opts) {
-	return stream.pipe(getFile(function(code, file) {
+	var plugin = getFile((code, file) => {
 		var rcLoader = rcCache[opts.rcName] || (rcCache[opts.rcName] = new RcLoader(opts.rcName, defaultOpts[opts.rcName] || (defaultOpts[opts.rcName] = {}), {
 			loader: "async"
 		}));
@@ -422,6 +416,8 @@ function codeBeautify(stream, opts) {
 		var filePath = file.path;
 
 		function lazyResult(resolve) {
+			console.log(code);
+			console.log(opts);
 			rcLoader.for(filePath, function(err, rc) {
 				if (err) {
 					rc = defaultOpts[opts.rcName];
@@ -435,10 +431,11 @@ function codeBeautify(stream, opts) {
 						} else {
 							// 为新代码文件结尾添加一个空行
 							newCode = newCode.replace(/\n*$/, "\n\n");
-							// Promise方式返回新代码
 							if (resolve) {
+								// Promise方式返回新代码
 								resolve(newCode);
 							} else {
+								// 将新代码交给气球提示流程
 								opts.newCode = newCode;
 								cacheNotification[filePath] = opts;
 								notify();
@@ -460,7 +457,12 @@ function codeBeautify(stream, opts) {
 		} else {
 			return new Promise(lazyResult);
 		}
-	}, opts.title));
+	}, opts.title);
+	if(stream){
+		return stream.pipe(plugin);
+	} else {
+		return plugin;
+	}
 }
 
 /**
@@ -477,14 +479,21 @@ function cssBeautify(stream, lazy) {
 		lazy: lazy,
 		beautify: function(css, config, file) {
 			var postcss = require("postcss");
-			var removePrefixes = require("postcss-remove-prefixes");
-			css = postcss([removePrefixes()]).process(css).css;
-			var comb = new require("csscomb")(config || "csscomb");
-			return new Promise((resolve) => {
-				resolve(comb.processString(css, {
+			var processors = [
+				require("postcss-unprefix"),
+				require("postcss-gradientfixer"),
+				require("postcss-flexboxfixer"),
+				require("autoprefixer")({
+					add: false,
+					browsers: []
+				})
+			];
+			return Promise.reject(postcss(processors).process(css)).then(result => {
+				var comb = new require("csscomb")(config || "csscomb");
+				return comb.processString(result.css, {
 					syntax: file.path.split(".").pop(),
 					filename: file.path
-				}));
+				});
 			});
 		}
 	});
@@ -527,7 +536,11 @@ function cssPipe(stream) {
 		require("postcss-cssnext")({
 			features: {
 				"autoprefixer": {
-					browsers: ["last 3 version", "ie > 8", "Android >= 3", "Safari >= 5.1", "iOS >= 5"]
+					browsers: ["last 3 version", "ie > 8", "Android >= 3", "Safari >= 5.1", "iOS >= 5"],
+					// should Autoprefixer use Visual Cascade, if CSS is uncompressed.
+					cascade: false,
+					// If you have no legacy code, this option will make Autoprefixer about 10% faster.
+					remove: false,
 				}
 			}
 		}),
@@ -552,7 +565,7 @@ function cssPipe(stream) {
 				return input.source + " produced " + input.messages.length + " messages";
 			} : undefined,
 			clearMessages: true
-		}) : null,
+		}) : require("cssnano")(),
 	];
 
 	if (isDev) {
@@ -567,11 +580,6 @@ function cssPipe(stream) {
 	processors = processors.filter(processor => processor);
 
 	stream = stream.pipe(require("gulp-postcss")(processors));
-
-	if (!isDev) {
-		// css压缩
-		stream = stream.pipe(require("gulp-clean-css")());
-	}
 
 	return stream;
 }
@@ -1003,7 +1011,7 @@ function addTag(dir, tag) {
 			];
 		}
 
-		return cmds.map(function(cmd) {
+		return cmds.map(cmd => {
 			return require("child_process").execSync(cmd, {
 				cwd: dir
 			}).toString();
@@ -1067,7 +1075,7 @@ gulp.task("publish", (cb) => {
 	getFiles.then(files => {
 		var succCount = 0;
 		var total = 0;
-		files.forEach(function(file) {
+		files.forEach(file => {
 			total += getFileSize(file);
 		});
 		console.log("需要上传" + files.length + "个文件，共" + byteStringify(total) + "。");
@@ -1166,16 +1174,44 @@ gulp.task("publish", (cb) => {
 	});
 });
 
+gulp.task("fix", () => {
+	console.log("fix");
+
+	var program = new(require("commander").Command)("gulp publish");
+
+	program
+		.option("--src [path]", "要修复的文件路径", String, "")
+		.option("--dest [path]", "文件保存路径，缺省为--src的值", String)
+
+	.parse(process.argv);
+
+	if (!program.src) {
+		program.help();
+		return;
+	}
+	var src = program.src;
+	var dest = program.dest || src.replace(/\/\*\*\/.*$/, "");
+	var gulpif = require("gulp-if");
+
+	return gulp.src(src)
+
+	.pipe(gulpif((file) => {
+		return /\.(?:|js|es\d|ts|coffee)$/.test(file.path);
+	}, jsBeautify(), cssBeautify()))
+
+	.pipe(gulp.dest(dest));
+});
+
 /**
  * 用Promise包装fs对象下的函数
  * 检查fs中的所有函数，如果拥有名字为xxx函数，又同时拥有名字为xxxSync的函数，则为fs定义一个xxxAsync函数，返回值类型为Promise对象
  */
-(function(fs) {
+((fs) => {
 	function addAsyncFn(fnName) {
 		fs[fnName + "Async"] = function() {
 			var args = Array.from(arguments);
 			return new Promise((resolve, reject) => {
-				args.push(function(err, data) {
+				args.push((err, data) => {
 					if (err) {
 						reject(err);
 					} else {
