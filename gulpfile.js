@@ -1042,11 +1042,6 @@ gulp.task("publish", (cb) => {
 		return;
 	}
 
-	if (program.ci) {
-		// CI环境下打印一下配置
-		console.log(program);
-	}
-
 	var uploader = fileUploader({
 		"url": program.url,
 		"base": program.base || "/",
