@@ -72,7 +72,10 @@ function getFile(callback, debugname) {
 		}
 
 		if (content) {
-			Promise.reject(content).then(sendResult).catch(sendError);
+			if (!(content instanceof Promise)) {
+				content = Promise.reject(content);
+			}
+			content.then(sendResult).catch(sendError);
 		} else {
 			cb(null, file);
 		}
@@ -416,8 +419,6 @@ function codeBeautify(stream, opts) {
 		var filePath = file.path;
 
 		function lazyResult(resolve) {
-			console.log(code);
-			console.log(opts);
 			rcLoader.for(filePath, function(err, rc) {
 				if (err) {
 					rc = defaultOpts[opts.rcName];
@@ -430,7 +431,7 @@ function codeBeautify(stream, opts) {
 							delete cacheNotification[filePath];
 						} else {
 							// 为新代码文件结尾添加一个空行
-							newCode = newCode.replace(/\n*$/, "\n\n");
+							newCode = newCode.replace(/\n*$/, "\n");
 							if (resolve) {
 								// Promise方式返回新代码
 								resolve(newCode);
@@ -458,7 +459,7 @@ function codeBeautify(stream, opts) {
 			return new Promise(lazyResult);
 		}
 	}, opts.title);
-	if(stream){
+	if (stream) {
 		return stream.pipe(plugin);
 	} else {
 		return plugin;
@@ -480,7 +481,6 @@ function cssBeautify(stream, lazy) {
 		beautify: function(css, config, file) {
 			var postcss = require("postcss");
 			var processors = [
-				require("postcss-unprefix"),
 				require("postcss-gradientfixer"),
 				require("postcss-flexboxfixer"),
 				require("autoprefixer")({
@@ -488,7 +488,7 @@ function cssBeautify(stream, lazy) {
 					browsers: []
 				})
 			];
-			return Promise.reject(postcss(processors).process(css)).then(result => {
+			return postcss(processors).process(css).then(result => {
 				var comb = new require("csscomb")(config || "csscomb");
 				return comb.processString(result.css, {
 					syntax: file.path.split(".").pop(),
@@ -1042,6 +1042,11 @@ gulp.task("publish", (cb) => {
 		return;
 	}
 
+	if (program.ci) {
+		// CI环境下打印一下配置
+		console.log(program);
+	}
+
 	var uploader = fileUploader({
 		"url": program.url,
 		"base": program.base || "/",
@@ -1175,7 +1180,6 @@ gulp.task("publish", (cb) => {
 });
 
 gulp.task("fix", () => {
-	console.log("fix");
 
 	var program = new(require("commander").Command)("gulp publish");
 
