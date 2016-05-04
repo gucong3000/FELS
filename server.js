@@ -45,6 +45,21 @@ if (app.get("env") === "development") {
 	app.use((req, res, next) => {
 		next();
 	});
+} else {
+	// SEO 预渲染
+	app.get("/*", (req, res, next) => {
+		var promise = require("./render")(req);
+		if (promise) {
+			promise.then(contents => {
+				res.type("html").send(contents);
+			}).catch(url => {
+				console.error(url.pathname + "\t服务器端预渲染失败");
+				next();
+			});
+		} else {
+			next();
+		}
+	});
 }
 
 // 将文件请求转发给gulp
@@ -94,10 +109,10 @@ app.use((req, res, next) => {
 	var mime;
 	try {
 		mime = require("mime-types").lookup(req.path);
-	} catch(ex){
-		
+	} catch (ex) {
+
 	}
-	if(mime){
+	if (mime) {
 		res.type(mime);
 	}
 	next();
@@ -215,7 +230,7 @@ if (app.get("env") === "development") {
 app.use((err, req, res, next) => {
 	if (err && err.stack) {
 		var errLog = (err.stack || err).toString();
-		if (errLog.length < 800) {
+		if (errLog.length < 3000) {
 			// 控制台显示完整报错信息
 			console.error(errLog);
 		}
