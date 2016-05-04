@@ -1074,7 +1074,7 @@ gulp.task("publish", (cb) => {
 	}
 
 	getFiles.then(files => {
-		files.filter(file => {
+		files = files.filter(file => {
 			// 排除`gulpfile.js`、 `gruntfile.js`、 `package\.json`、`*.log`,、`*.less`,、`*.sass`,、`*.coffee`,、`*.ts`,、`*.es*`,
 			return !/(?:^|;\/)(?:package\.json|gruntfile\.js|[^/]+\.(?:log|less|sass|scss|coffee|ts|es\d)|\..*)$/i.test(file.relative);
 		});
