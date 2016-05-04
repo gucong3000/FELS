@@ -7,7 +7,7 @@
 
 [.csscomb.json](../.csscomb.json) 此文件控制其所在目录及子目录的CSScomb规则
 
-### .jshintrc配置详解
+### .csscomb.json配置详解
 
 ```JSON
 {
@@ -69,8 +69,9 @@
 }
 ```
 
-## Sublime Text配置
-1.  安装插件 [CSScomb for Sublime Text](https://packagecontrol.io/packages/CSScomb)
+## 编辑器插件支持
+-   [CSScomb for Sublime Text](https://packagecontrol.io/packages/CSScomb)
+-   [brackets-csscomb](https://github.com/i-akhmadullin/brackets-csscomb)
 
 ## 参考阅读
-* [CSScomb 官方文档（英文）](https://github.com/csscomb/csscomb.js/blob/master/doc/options.md)
+-   [CSScomb 官方文档（英文）](https://github.com/csscomb/csscomb.js/blob/master/doc/options.md)

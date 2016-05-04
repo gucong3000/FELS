@@ -69,8 +69,7 @@
 })(window.$ || require("jquery"));
 ```
 
-## 使用JSHint
+## 扩展工具
 
-应使用[JSHint](http://jshint.com/)进行代码审查[详见文档](jshint_config.md)
-
-## 使用[JS Beautifier](http://jsbeautifier.org/)格式化代码
+-   [JSHint - 代码风格审查](jshint_config.md)
+-   [JS Beautifier - 代码格式化](jsbeautify_config.md)

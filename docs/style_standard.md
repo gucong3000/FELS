@@ -49,6 +49,7 @@
 -   z-index滥用超大的数值，应尽量避免使用z-index，非用不可时，1-10用于页面布局，100-110用于浮动元素，1000-1100用于对话框
 -   代码段前后使用注释说明用途
 
-## 使用jsHint
+## 扩展工具
 
-[详见文档](csscomb_config.md)
+-   [stylelint - 代码风格审查](stylelint_config.md)
+-   [CSScomb - 代码格式化](csscomb_config.md)
