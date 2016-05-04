@@ -1179,8 +1179,8 @@ gulp.task("fix", () => {
 	var program = new(require("commander").Command)("gulp publish");
 
 	program
-		.option("--src [path]", "要修复的文件路径", String, "")
-		.option("--dest [path]", "文件保存路径，缺省为--src的值", String)
+		.option("--src [path]", "要修复的文件路径，glob格式", String, "")
+		.option("--dest [path]", "文件保存路径，缺省为--src所在的文件夹", String)
 
 	.parse(process.argv);
 
@@ -1189,7 +1189,7 @@ gulp.task("fix", () => {
 		return;
 	}
 	var src = program.src;
-	var dest = program.dest || src.replace(/\/\*\*\/.*$/, "");
+	var dest = program.dest || src.replace(/[^\\\/]+$/, "");
 	var gulpif = require("gulp-if");
 
 	return gulp.src(src)
