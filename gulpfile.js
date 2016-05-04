@@ -834,9 +834,9 @@ function fsWalker(rootDir) {
 				// 储存当前目录下的文件
 				var subFiles = [];
 
-				// 排除.*、node_modules、*.log
+				// 排除`.*`、`node_modules`
 				subNames = subNames.filter(subName => {
-					return !/^(?:node_modules|package\.json|gulpfile\.js|gruntfile\.js|\..*|.*\.log)$/i.test(subName);
+					return !/^(?:node_modules|\..*)$/i.test(subName);
 				}).map(subName => {
 					var subPath = path.join(rootDir, subName);
 					// 异步获取子对象状态
@@ -954,11 +954,12 @@ function diff(dir, tag) {
 			// "hg的输出结果有`2228 files changed, 61157 insertions(+), 1857 deletions(-)`这样一行，删掉"
 			files = files.replace(/\s+\d+\s+files\s+changed,\s+\d+\s+insertions\(\+\),\s+\d+\s+deletions\(-\)\s*$/, "\n");
 		}
+
 		files = files.split(regSplit);
 
 		files = files.filter(subPath => {
-			// 排除.*、node_modules、*.log，空行
-			return subPath && !/(?:^|\/)(?:node_modules|package\.json|gulpfile\.js|gruntfile\.js|\..*|.*\.log)(?:\/|$)/i.test(subPath) && !/(?:^|\/)/.test(subPath);
+			// 排除空行
+			return subPath;
 		});
 
 		// 将文件相对路径数组转换成Vinyl数组
@@ -1073,6 +1074,10 @@ gulp.task("publish", (cb) => {
 	}
 
 	getFiles.then(files => {
+		files.filter(file => {
+			// 排除`gulpfile.js`、 `gruntfile.js`、 `package\.json`、`*.log`,、`*.less`,、`*.sass`,、`*.coffee`,、`*.ts`,、`*.es*`,
+			return !/(?:^|;\/)(?:package\.json|gruntfile\.js|[^/]+\.(?:log|less|sass|scss|coffee|ts|es\d)|\..*)$/i.test(file.relative);
+		});
 		var succCount = 0;
 		var total = 0;
 		files.forEach(file => {
