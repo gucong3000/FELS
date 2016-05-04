@@ -1114,11 +1114,10 @@ gulp.task("publish", (cb) => {
 				if (bar) {
 					bar.tick(getFileSize(data.file));
 				} else {
-					tick += getFileSize(data.file);
-					var newPercent = Number(tick / total).toFixed(2);
+					var newPercent = Math.min(100, Math.round(succCount * 100 / files.length));
 					if (newPercent !== percent) {
 						percent = newPercent;
-						console.log(percent.replace(/^\d+\.(\d+)/, "$1%"));
+						console.log(percent + "%");
 					}
 				}
 			},
