@@ -1,10 +1,7 @@
 "use strict";
 var gulp = require("gulp");
 var path = require("path");
-var fs = require("fs");
-
-require("graceful-fs").gracefulify(fs);
-
+var fs = require("fs-extra-async");
 var gutil = require("gulp-util");
 var through = require("through2");
 var uglifyOpt = {
@@ -661,15 +658,13 @@ module.exports = (staticRoot, env) => {
 		} else {
 			return;
 		}
-		return new Promise((resolve, reject) => {
-			fs.readFile(filePath, (err, data) => {
-				if (err) {
-					reject();
-				} else {
-					resolve(data);
-				}
-			});
-		}).then(data => {
+		return fs.readFileAsync(filePath)
+
+		.catch(() => {
+			return;
+		})
+
+		.then(data => {
 
 			var contents = data.toString();
 
@@ -1026,7 +1021,7 @@ gulp.task("publish", (cb) => {
 	var program = new(require("commander").Command)("gulp publish");
 
 	program
-		.option("--url [url]", "文件上传服务API", String, "http://pic.int.jumei.com/upload")
+		.option("--url [url]", "文件上传服务API", String, "")
 		.option("--username [username]", "API用户名", String)
 		.option("--password [password]", "API密码", String)
 		.option("--diff [git/hg tag]", "与指定的git或hg tag比较差异", String, "")
@@ -1038,7 +1033,7 @@ gulp.task("publish", (cb) => {
 
 	.parse(process.argv);
 
-	if (!program.username || !program.password) {
+	if (!program.username || !program.password || !program.url) {
 		program.help();
 		return;
 	}
@@ -1146,12 +1141,16 @@ gulp.task("publish", (cb) => {
 
 						.then(() => {
 							console.log("tag同步成功：", program.diff);
-							cb();
 						})
 
 						.catch(error => {
 							console.error("tag同步出错：", error.message);
+						})
+
+						.then(() => {
 							cb();
+
+							// git log --pretty=format:"%aE" -n 1
 						});
 					} else {
 						cb();
@@ -1180,7 +1179,7 @@ gulp.task("publish", (cb) => {
 
 gulp.task("fix", () => {
 
-	var program = new(require("commander").Command)("gulp publish");
+	var program = new(require("commander").Command)("gulp fix");
 
 	program
 		.option("--src [path]", "要修复的文件路径，glob格式", String, "")
@@ -1205,30 +1204,79 @@ gulp.task("fix", () => {
 	.pipe(gulp.dest(dest));
 });
 
-/**
- * 用Promise包装fs对象下的函数
- * 检查fs中的所有函数，如果拥有名字为xxx函数，又同时拥有名字为xxxSync的函数，则为fs定义一个xxxAsync函数，返回值类型为Promise对象
- */
-((fs) => {
-	function addAsyncFn(fnName) {
-		fs[fnName + "Async"] = function() {
-			var args = Array.from(arguments);
-			return new Promise((resolve, reject) => {
-				args.push((err, data) => {
-					if (err) {
-						reject(err);
-					} else {
-						resolve(data);
-					}
-				});
-				fs[fnName].apply(fs, args);
-			});
-		};
+gulp.task("Jenkins", () => {
+
+	// 获取命令行参数
+	var program = new(require("commander").Command)("gulp Jenkins");
+
+	program
+		.option("--url [url]", "Jenkins的url", String, "")
+		.option("--path [path]", "要安装钩子的仓库路径", String, ".")
+
+	.parse(process.argv);
+
+	if (!program.path || !program.url) {
+		// 显示帮助信息
+		program.help();
+		return;
 	}
 
-	for (var fnName in fs) {
-		if (!/a?sync/i.test(fnName) && typeof fs[fnName] === "function" && typeof fs[fnName + "Sync"] === "function" && !(fnName + "Async" in fs)) {
-			addAsyncFn(fnName);
-		}
+	function urlResolve(pathname) {
+		// 将路径名称与program.url拼接为完整url
+		return require("url").resolve(program.url, pathname);
 	}
-})(fs);
+
+	function readFile(filePath) {
+		// 读取文本文件，拿到内容转换为字符串，再转换ini文件内容为对象
+		return fs.readFileAsync(filePath).then(contents => require("ini").parse(contents.toString()));
+	}
+
+	// 判断代码库类型
+	return getRepType(program.path)
+
+	.then(type => {
+		var filePath;
+		if (type === "git") {
+			// 读取git配置文件
+			filePath = path.join(program.path, ".git/config");
+			return readFile(filePath)
+
+			.then(config => {
+				// 配置文件转为ini格式
+				var cmd = "#!/bin/sh\ncurl " + urlResolve("git/notifyCommit?url=" + config["remote \"origin\""].url);
+				// 写入post-receive文件
+				return fs.outputFileAsync(path.join(program.path, ".git/hooks/post-receive"), cmd);
+			});
+		} else if (type = "hg") {
+			// 读取hg配置文件
+			filePath = path.join(program.path, ".hg/hgrc");
+			return readFile(filePath)
+
+			.then(config => {
+				var cmd = "curl " + urlResolve("mercurial/notifyCommit?url=" + config.paths.default);
+
+				// 配置文件中已有Jenkins触发命令
+				if (config.hooks && config.hooks["changegroup.jenkins"] === cmd && config.hooks["incoming.jenkins"] === cmd) {
+					return cmd;
+				}
+
+				// 发现 `ini` 这个模块会给值加上多余的双引号，所以这里使用这个变态的办法
+				config.hooks = Object.assign(config.hooks || {}, {
+					"changegroup.jenkins": "${ Jenkins }",
+					"incoming.jenkins": "${ Jenkins }",
+				});
+
+				// 将对象转换为ini文件格式的字符串
+				var ini = require("ini");
+				config = ini.stringify(config, {
+					whitespace: true
+				});
+
+				// `ini` 这个模块太讨厌了，自作多情转译了值，只好这样保存啦
+				config = config.replace(/\$\{\s*Jenkins\s*\}/g, cmd);
+				// 写入hg配置文件
+				return fs.writeFileAsync(filePath, config);
+			});
+		}
+	});
+});
