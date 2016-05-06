@@ -12,7 +12,7 @@ var uglifyOpt = {
 };
 
 // 是否汇报错误
-var reporter = true;
+var reporter = ("REPORTER" in process.env) ? Boolean(process.env.REPORTER) : true;
 // 项目根目录设置
 var baseDir = process.cwd();
 
@@ -414,6 +414,8 @@ function codeBeautify(stream, opts) {
 		}));
 
 		var filePath = file.path;
+
+		code = code.replace(/\r\n/g, "\n");
 
 		function lazyResult(resolve) {
 			rcLoader.for(filePath, function(err, rc) {
@@ -1033,7 +1035,8 @@ gulp.task("publish", (cb) => {
 
 	.parse(process.argv);
 
-	if (!program.username || !program.password || !program.url) {
+	if (program.help || !program.password || !program.url) {
+		// 显示帮助信息
 		program.help();
 		return;
 	}
@@ -1177,6 +1180,33 @@ gulp.task("publish", (cb) => {
 	});
 });
 
+gulp.task("server", () => {
+	var program = new(require("commander").Command)("gulp server");
+
+	program
+		.option("--env [development]", "服务器运行环境，默认`development`", String, "development")
+		.option("--path [path]", "服务器根目录", String, "")
+		.option("--port [Number|path]", "监听端口号，或者unix套接字, 默认`80`", String, "80")
+		.option("--reporter [Number|path]", "是否打开客户端代码错误汇报，默认", Boolean)
+
+	.parse(process.argv);
+
+	if (program.help || !program.path) {
+		// 显示帮助信息
+		program.help();
+		return;
+	}
+
+	require("child_process").fork("./server.js", {
+		cwd: program.path,
+		env: {
+			REPORTER: program.reporter,
+			PORT: program.port,
+			NODE_ENV: program.env,
+		}
+	});
+});
+
 gulp.task("fix", () => {
 
 	var program = new(require("commander").Command)("gulp fix");
@@ -1187,10 +1217,12 @@ gulp.task("fix", () => {
 
 	.parse(process.argv);
 
-	if (!program.src) {
+	if (program.help || !program.src) {
+		// 显示帮助信息
 		program.help();
 		return;
 	}
+
 	var src = program.src;
 	var dest = program.dest || src.replace(/[^\\\/]+$/, "");
 	var gulpif = require("gulp-if");
@@ -1215,7 +1247,7 @@ gulp.task("Jenkins", () => {
 
 	.parse(process.argv);
 
-	if (!program.path || !program.url) {
+	if (program.help || !program.path || !program.url) {
 		// 显示帮助信息
 		program.help();
 		return;

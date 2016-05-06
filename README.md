@@ -23,8 +23,10 @@ npm config set phantomjs_cdnurl https://npm.taobao.org/dist/phantomjs
 ## 启动web服务(dev)
 
 ```bash
-node server.js
+gulp server <options>
 ```
+
+[更多帮助](./docs/gulp_server.md)
 
 ## 文件部署
 
