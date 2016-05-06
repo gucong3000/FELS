@@ -37,8 +37,8 @@ gulp server `<options>`
     --path [path]             服务器根目录
     --port [Number|path]      监听端口号，或者unix套接字, 默认`80`/`443`
     --reporter [Number|path]  是否打开客户端代码错误汇报，默认
-    --dns [ip]                回源功能使用的DNS服务器```
-
+    --dns [ip]                回源功能使用的DNS服务器
+```
 ## 功能详解
 
 ### 文件动态编译
