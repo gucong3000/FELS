@@ -663,7 +663,7 @@ module.exports = (staticRoot, env) => {
 		return fs.readFileAsync(filePath)
 
 		.catch(() => {
-			return;
+			throw null;
 		})
 
 		.then(data => {
@@ -1035,7 +1035,7 @@ gulp.task("publish", (cb) => {
 
 	.parse(process.argv);
 
-	if (program.help || !program.password || !program.url) {
+	if (!program.password || !program.url) {
 		// 显示帮助信息
 		program.help();
 		return;
@@ -1186,22 +1186,24 @@ gulp.task("server", () => {
 	program
 		.option("--env [development]", "服务器运行环境，默认`development`", String, "development")
 		.option("--path [path]", "服务器根目录", String, "")
-		.option("--port [Number|path]", "监听端口号，或者unix套接字, 默认`80`", String, "80")
+		.option("--port [Number|path]", "监听端口号，或者unix套接字, 默认`80`/`443`", String, "")
 		.option("--reporter [Number|path]", "是否打开客户端代码错误汇报，默认", Boolean)
+		.option("--dns [ip]", "回源功能使用的DNS服务器", String)
 
 	.parse(process.argv);
 
-	if (program.help || !program.path) {
+	if (!program.path) {
 		// 显示帮助信息
 		program.help();
 		return;
 	}
 
-	require("child_process").fork("./server.js", {
-		cwd: program.path,
+	require("child_process").fork(require.resolve("./server.js"), {
+		cwd: path.resolve(program.path),
 		env: {
 			REPORTER: program.reporter,
-			PORT: program.port,
+			PORT: program.port || "",
+			DNS: program.dns,
 			NODE_ENV: program.env,
 		}
 	});
@@ -1217,7 +1219,7 @@ gulp.task("fix", () => {
 
 	.parse(process.argv);
 
-	if (program.help || !program.src) {
+	if (!program.src) {
 		// 显示帮助信息
 		program.help();
 		return;
@@ -1247,7 +1249,7 @@ gulp.task("Jenkins", () => {
 
 	.parse(process.argv);
 
-	if (program.help || !program.path || !program.url) {
+	if (!program.path || !program.url) {
 		// 显示帮助信息
 		program.help();
 		return;

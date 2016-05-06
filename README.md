@@ -20,13 +20,11 @@ npm config set disturl https://npm.taobao.org/dist
 npm config set phantomjs_cdnurl https://npm.taobao.org/dist/phantomjs
 ```
 
-## 启动web服务(dev)
+## [启动web服务(dev)](./docs/gulp_server.md)
 
 ```bash
 gulp server <options>
 ```
-
-[更多帮助](./docs/gulp_server.md)
 
 ## 文件部署
 

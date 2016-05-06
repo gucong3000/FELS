@@ -1,7 +1,3 @@
-/*
- * SEO页面渲染
- * 为了少写一个文件，此文件实为两套脚本，一套在node环境下使用，另一套在PhantomJS中使用
- */
 "use strict";
 
 // 各大搜索引擎的userAgent中的关键字

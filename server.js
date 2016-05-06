@@ -27,15 +27,18 @@ app.set("etag", "strong");
 var gulp = require("./gulpfile")(staticRoot, app.get("env"));
 
 function readFileByGulp(filePath) {
-	// 线上服务器路径映射为本地路径
 
-	// `/d28bab9bd69f3090/app.css` 转换为 `/app.css`
-	filePath = filePath.replace(/\/[\da-f]{16,}\//, "\/");
+	try {
+		filePath = require("./config/pathmap")(filePath);
+	} catch (ex) {
 
-	// `/static_passport/dist/20160126_2/js/library/es5-shim.js` 转换为 `/static_passport/src/js/library/es5-shim.js`
-	filePath = filePath.replace(/\/dist\/201\d(?:0?[1-9]|11|12)[\d\_]+\//, "/src\/");
+	}
 
-	return gulp(filePath);
+	if (filePath instanceof Promise) {
+		return filePath.then(gulp);
+	} else {
+		return gulp(filePath);
+	}
 }
 
 // 只有dev环境使用
@@ -138,10 +141,10 @@ if (app.get("env") === "development") {
 
 		function render() {
 			let data = apiDataCache[msgCode];
-			require("fs").readFile("markdown.html", function(err, html) {
+			require("fs").readFile(require.resolve("./markdown.html"), function(err, html) {
 				let type;
 				if (!err) {
-					data = html.toString().replace(/(<title>)\s*(<\/title>)/i, `$1${ data.title }$2`).replace(/(<div class="row">\n*)\s*(\n*<\/div>)/i, "$1" + require("markdown-it")().render("## " + data.title + "\n\n" + data.explanation) + "$2");
+					data = html.toString().replace(/(<title>)\s*(<\/title>)/i, `$1${ data.title }$2`).replace(/(<div class="row">\n*)\s*(\n*<\/div>)/i, "$1" + require("markdown-it")().render("# " + data.title + "\n\n" + (desc ? "## " + desc + "\n\n" : "") + data.explanation) + "$2");
 					type = "html";
 				} else {
 					type = "markdown";
@@ -195,6 +198,18 @@ if (app.get("env") === "development") {
 		}
 	});
 
+
+	var dnsAddress = app.get("DNS");
+	(() => {
+		if (dnsAddress) {
+			dnsAddress = dnsAddress.trim();
+			if (/^((?:(?:25[0-5]|2[0-4]\d|((1\d{2})|([1-9]?\d)))\.){3}(?:25[0-5]|2[0-4]\d|((1\d{2})|([1-9]?\d))))$/.test(dnsAddress)) {
+				return;
+			}
+		}
+		dnsAddress = "192.168.66.111";
+	})();
+
 	// 文件回源
 	app.use((req, res, next) => {
 
@@ -204,18 +219,20 @@ if (app.get("env") === "development") {
 		}
 		// dns查找主机
 		require("nslookup")(req.hostname)
-			// 本地dns服务器地址
-			.server("192.168.66.111")
-			.end(function(err, addrs) {
-				if (err || !addrs.length) {
-					// dns未查找到主机，进入下一个Express中间件
-					return next();
-				}
-				// 将请求映射到线上主机
-				require("express-http-proxy")(addrs.pop(), {
-					preserveHostHdr: true,
-				})(req, res, next);
-			});
+
+		// 本地dns服务器地址
+		.server(dnsAddress)
+
+		.end(function(err, addrs) {
+			if (err || !addrs.length) {
+				// dns未查找到主机，进入下一个Express中间件
+				return next();
+			}
+			// 将请求映射到线上主机
+			require("express-http-proxy")(addrs.pop(), {
+				preserveHostHdr: true,
+			})(req, res, next);
+		});
 
 	});
 
@@ -273,9 +290,9 @@ ${ message }
 	if (isDev) {
 		try {
 			options = {
-				key: fs.readFileSync("./ssl/localhost.key"),
-				ca: [fs.readFileSync("./ssl/rootCA.crt")],
-				cert: fs.readFileSync("./ssl/localhost.crt"),
+				key: fs.readFileSync(require.resolve("./ssl/ssl.key")),
+				ca: [fs.readFileSync(require.resolve("./ssl/ssl.crt"))],
+				cert: fs.readFileSync(require.resolve("./ssl/ssl.crt")),
 			};
 		} catch (ex) {
 
