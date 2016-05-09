@@ -11,7 +11,7 @@ var uglifyOpt = {
 	}
 };
 
-// 是否汇报错误
+// 是否在浏览器端汇报js与css错误
 var reporter = ("REPORTER" in process.env) ? Boolean(process.env.REPORTER) : true;
 // 项目根目录设置
 var baseDir = process.cwd();
@@ -1187,8 +1187,8 @@ gulp.task("server", () => {
 		.option("--env [development]", "服务器运行环境，默认`development`", String, "development")
 		.option("--path [path]", "服务器根目录", String, "")
 		.option("--port [Number|path]", "监听端口号，或者unix套接字, 默认`80`/`443`", String, "")
-		.option("--reporter [Number|path]", "是否打开客户端代码错误汇报，默认", Boolean)
-		.option("--dns [ip]", "回源功能使用的DNS服务器", String)
+		.option("--no-reporter [Boolean]", "是否关闭客户端代码错误汇报, 默认不关闭", Boolean)
+		.option("--dns [ip]", "回源功能使用的DNS服务器", String, "")
 
 	.parse(process.argv);
 
@@ -1201,9 +1201,9 @@ gulp.task("server", () => {
 	require("child_process").fork(require.resolve("./server.js"), {
 		cwd: path.resolve(program.path),
 		env: {
-			REPORTER: program.reporter,
+			REPORTER: program.reporter || "",
 			PORT: program.port || "",
-			DNS: program.dns,
+			DNS: program.dns || "",
 			NODE_ENV: program.env,
 		}
 	});

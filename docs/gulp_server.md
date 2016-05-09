@@ -1,7 +1,9 @@
 gulp server `<options>`
 =====
 
-开发用web服务器
+被动式资源http服务
+
+> 当你访问一个文件的时候，就会去寻找这个文件的需要经过的处理中间件，让文件以管道的形式通过这些中间件，最后返回一个处理过的文件内容。
 
 ## 功能
 
@@ -21,7 +23,7 @@ gulp server `<options>`
     - js sourceMapping (release)
 -   [浏览器自动刷新 (bug)](#浏览器自动刷新)
 -   [SEO服务器端预渲染模式 (beta)](#seo服务器端预渲染模式)
--   [concat文件请求合并 (beta)](#concat文件请求合并)
+-   [combo文件请求合并 (beta)](#combo文件请求合并)
 -   [jsHint报错查询 (beta)](#jshint报错查询)
 -   [markdown文档查看 (dev)](#markdown文档查看)
 -   [简单的翻墙服务 (release)](#简单的翻墙服务)
@@ -33,11 +35,11 @@ gulp server `<options>`
 ```bash
   Usage: gulp server [options]
   Options:
-    --env [development]       服务器运行环境，默认`development`
-    --path [path]             服务器根目录
-    --port [Number|path]      监听端口号，或者unix套接字, 默认`80`/`443`
-    --reporter [Number|path]  是否打开客户端代码错误汇报，默认
-    --dns [ip]                回源功能使用的DNS服务器
+    --env [development]      服务器运行环境，默认`development`
+    --path [path]            服务器根目录
+    --port [Number|path]     监听端口号，或者unix套接字, 默认`80`/`443`
+    --no-reporter [Boolean]  是否关闭客户端代码错误汇报, 默认不关闭
+    --dns [ip]               回源功能使用的DNS服务器
 ```
 ## 功能详解
 
@@ -53,9 +55,9 @@ gulp server `<options>`
 
 对来自搜索引擎的请求，使用`PhantomJS`浏览器预渲染页面后输出，本地debug可使用URL参数`_escaped_fragment_`来替换hash。此参数是[google的约定](https://developers.google.com/webmasters/ajax-crawling/docs/specification)
 
-### concat文件请求合并
+### combo文件请求合并
 
-类似于apache中的mod_concat模块，用于合并多个文件在一个响应报文中。
+类似于apache中的mod_combo模块，用于合并多个文件在一个响应报文中。
 请求参数需要用两个问号（'??'）例如：
 
 ```
@@ -69,14 +71,14 @@ http://example.com/??style1.css,style2.css,foo/style3.css?v=102234
 ```
 
 前端支持：[seajs-combo](https://github.com/seajs/seajs-combo/issues/3)
-后端支持：[Tengine](http://tengine.taobao.org/),  [nginx-http-concat](https://github.com/alibaba/nginx-http-concat)
+后端支持：[Tengine](http://tengine.taobao.org/),  [nginx-http-combo](https://github.com/alibaba/nginx-http-combo)
 
 ### jsHint报错查询
 
 查询 jsHint常见错误信息中文翻译、实例。如：
 
 ```
-http://127.0.0.1/jshint/W019
+http://example.com/jshint/W019
 ```
 
 ### markdown文档查看
@@ -109,5 +111,5 @@ gulp server --path ../work --dns 192.168.0.1
 
 ### http/2协议下开发
 
-`ssl.key`, `ssl.crt`, `ssl.crt`
-将这三个文件放进FELS所在目录下的`ssl`目录中，重启服务，然后使用https协议访问本地环境即可
+1. 自行生成ssl证书
+2. `ssl.key`, `ssl.crt`, `ssl.crt` 将这三个文件放进FELS所在目录下的`ssl`目录中，重启服务，然后使用https协议访问本地环境即可

@@ -282,6 +282,7 @@ ${ message }
 
 // 启动web服务
 (function() {
+	console.log("\nroot dir\t\t" + staticRoot);
 
 	const fs = require("fs");
 	const isDev = app.get("env") === "development";
@@ -321,7 +322,7 @@ ${ message }
 				console.log(stderr);
 			}
 		});
-		console.log("\nlivereload\t\t" + 35729);
+		console.log("livereload\t\t" + 35729);
 	}
 
 	/**
