@@ -8,6 +8,7 @@
 ```bash
 gulp Jenkins --url http://your.jenkins.server --path /path/to/your/project
 ```
+其中url在聚美中使用  `http://fe.int.jumei.com`
 > `--url`后面请填写你的Jenkins服务器地址`--path`后面填写你要安装hook的项目的本地路径
 
 ## 使用
