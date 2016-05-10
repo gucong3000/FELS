@@ -14,3 +14,5 @@ gulp Jenkins --url http://your.jenkins.server --path /path/to/your/project
 ## 使用
 
 日后正常push代码即可，无需特别进行特殊操作
+
+> Windows 用户需要下载curl，并将其放入环境变量的path中

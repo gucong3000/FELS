@@ -29,9 +29,9 @@ var isDev;
 
 /**
  * 将函数处理为文件数据流处理函数
- * @param  {Function} callback  [description]
- * @param  {[type]}   debugname [description]
- * @return {[type]}             [description]
+ * @param  {Function} callback  接收文件对象的函数，如需修改文件内容，请返回字符串或者Promise对象
+ * @param  {String}   debugname 调试信息名称，用于gulp报错时显示出错位置
+ * @return {Stream}             Stream对象，可用于继续pipe
  */
 function getFile(callback, debugname) {
 	return through.obj((file, encoding, cb) => {
@@ -70,7 +70,7 @@ function getFile(callback, debugname) {
 
 		if (content) {
 			if (!(content instanceof Promise)) {
-				content = Promise.reject(content);
+				content = Promise.resolve(content);
 			}
 			content.then(sendResult).catch(sendError);
 		} else {
@@ -405,7 +405,7 @@ function notify() {
  * @param  {String}			[opts.title]		代码美化的行为的名字，用于气泡提示的标题和报错信息中
  * @param  {Buffer|String}	[opts.icon]			弹出的气泡提示中的图片，可为文件内容的buffer，或文件路径、或文件url
  * @param  {Boolean}		[opts.lazy]			值为真时，美化后的代码写入stream，否则调用气泡提示，待用户点击后写入新代码到文件
- * @return {Stream}			stream				原样返回的stream，与原始值一样
+ * @return {Stream}								原样返回的stream，与原始值一样
  */
 function codeBeautify(stream, opts) {
 	var plugin = getFile((code, file) => {
@@ -612,7 +612,7 @@ module.exports = (staticRoot, env) => {
 					cwd: file.cwd,
 					base: file.base,
 					path: sourceMapPath,
-					contents: new Buffer(sourceMap)
+					contents: new Buffer(sourceMap),
 				});
 
 			sourceMapFile.etag = require("etag")(file.contents);
@@ -624,25 +624,25 @@ module.exports = (staticRoot, env) => {
 	}
 
 
-	function sendFile(filePath) {
-		function string_src(filename, buffer) {
+	function sendFile(relativePath) {
+		function gulp_src(filename, buffer) {
 			var src = require("stream").Readable({
 				objectMode: true
 			});
-			src._read = function() {
-				this.push(new gutil.File({
+			src._read = () => {
+				src.push(new gutil.File({
 					cwd: baseDir,
 					base: baseDir,
 					path: filename,
 					contents: Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer)
 				}));
-				this.push(null);
+				src.push(null);
 			};
 			return src;
 		}
 
 		var pipeFn;
-		filePath = path.resolve(path.join(baseDir, filePath));
+		var filePath = path.join(baseDir, relativePath);
 
 		if (sendFileCache[filePath]) {
 			// 如果外部请求的文件正好缓存中有，则发送出去，然后清除缓存中的此文件
@@ -658,25 +658,27 @@ module.exports = (staticRoot, env) => {
 		} else if (/\.html?$/i.test(filePath)) {
 			pipeFn = htmlPipe;
 		} else {
-			return;
+			pipeFn = null;
 		}
 		return fs.readFileAsync(filePath)
 
 		.catch(() => {
-			throw null;
+			return null;
 		})
 
 		.then(data => {
-
-			var contents = data.toString();
+			var contents;
+			if (pipeFn) {
+				contents = data.toString();
+			}
 
 			// 如果文件为压缩文件，则不做工作流处理
-			if (/\bsourceMappingURL=[^\n]+\.map\b/.test(contents) || lineCount(contents) < 3) {
+			if (contents && (/\bsourceMappingURL=[^\n]+\.map\b/.test(contents) || lineCount(contents) < 3)) {
 				pipeFn = false;
 			}
 
 			return new Promise((resolve, reject) => {
-				var stream = string_src(filePath, data)
+				var stream = gulp_src(filePath, data)
 
 				// 错误汇报机制
 				.pipe(plumber(ex => {
@@ -984,10 +986,47 @@ function diff(dir, tag) {
 	});
 }
 
+
+/**
+ * 获取代码库中当前分支最后一次提交的作者
+ * @param  {String}		dir 版本库所在的文件夹
+ * @return {Promise}	Promise内的值为数组，0为作者名字，1为作者邮箱
+ */
+function getAuthor(dir) {
+	dir = path.resolve(dir);
+	return getRepType(dir)
+
+	.then(repType => {
+		var cmd;
+		if (repType === "git") {
+			// git环境下要运行的命令
+			// 获取当前分支最后一次的提交用户信息放回数组的json字符串，0是用户名，1是email
+			cmd = `git log --pretty=format:"[\"%aN\",\"%aE\"]" -n 1`;
+		} else if (repType === "hg") {
+			// hg环境下要运行的命令
+			// 获取当前分支最后一次的提交用户信息放回数组的json字符串，0是用户名，1是email，2是原始的作者信息
+			cmd = `hg log --rev . --template "[\"{user(author)}\",\"{email(author)}\", \"{author}\"]"`;
+		}
+		// 将提交信息
+		cmd = JSON.parse(require("child_process").execSync(cmd, {
+			cwd: dir
+		}).toString().trim());
+
+		// hg下特殊处理，因为hg的作者信息只有一个字段，并非分为用户名和邮箱两个字段。检查原始的作者信息格式是否为精确的`name <emai@server.com>`格式
+		if (cmd && !/^.+\s+<\w+([-+.]\w+)*@\w+([-.]\w+)*\.\w+([-.]\w+)*>$/.test(cmd[2])) {
+			// 原始的作者信息不规范时，认为他没有email，删掉
+			cmd.length = 1;
+		}
+
+		return cmd;
+	});
+}
+
 /**
  * 对代码库打tag
- * @param {String} dir 版本库所在的文件夹
- * @param {String} tag tag名字
+ * @param  {String}		dir 版本库所在的文件夹
+ * @param  {String}		tag tag名字
+ * @return {Promise}	Promise内的值为数组，0为打tag命令的返回信息，1为推送tag的命令的返回信息
  */
 function addTag(dir, tag) {
 	dir = path.resolve(dir);
@@ -997,19 +1036,25 @@ function addTag(dir, tag) {
 	.then(repType => {
 		var cmds;
 		if (repType === "git") {
+			// git环境下要运行的命令
 			cmds = [
-				`git tag -f -a ${ tag } -m "by FELS"`,
-				`git push origin --delete tag ${ tag }`,
-				"git push --tags"
+				// 添加tag
+				`git tag --force --annotate ${ tag } --message "by FELS"`,
+				// 推送tag到服务器端
+				"git push --tags --force"
 			];
 		} else if (repType === "hg") {
+			// hg环境下要运行的命令
 			cmds = [
-				`hg tag -f -m "by FELS" ${ tag }`,
-				"hg push -f"
+				// 添加tag
+				`hg tag --force --message "by FELS" ${ tag }`,
+				// 推送tag到服务器端
+				"hg push --force"
 			];
 		}
 
 		return cmds.map(cmd => {
+			// 运行所有的命令
 			return require("child_process").execSync(cmd, {
 				cwd: dir
 			}).toString();
@@ -1059,6 +1104,7 @@ gulp.task("publish", (cb) => {
 	}
 
 	var getFiles;
+	var author = getAuthor(program.dir);
 	if (program.diff) {
 		console.log("正在查询与上一版本的文件差异");
 		getFiles = diff(program.dir, program.diff)
@@ -1151,9 +1197,12 @@ gulp.task("publish", (cb) => {
 						})
 
 						.then(() => {
-							cb();
+							return author;
+						})
 
-							// git log --pretty=format:"%aE" -n 1
+						.then(author => {
+							console.log("发邮件流程模拟", author);
+							cb();
 						});
 					} else {
 						cb();

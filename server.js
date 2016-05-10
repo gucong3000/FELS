@@ -23,22 +23,22 @@ app.use(compress({
 app.set("x-powered-by", false);
 app.set("etag", "strong");
 
-
 var gulp = require("./gulpfile")(staticRoot, app.get("env"));
 
 function readFileByGulp(filePath) {
 
+	var pathname;
 	try {
-		filePath = require("./config/pathmap")(filePath);
+		pathname = require("./config/pathmap")(filePath, staticRoot) || filePath;
 	} catch (ex) {
 
 	}
 
-	if (filePath instanceof Promise) {
-		return filePath.then(gulp);
-	} else {
-		return gulp(filePath);
+	if (!(pathname instanceof Promise)) {
+		pathname = Promise.resolve(pathname);
 	}
+
+	return pathname.then(gulp);
 }
 
 // 只有dev环境使用
@@ -86,25 +86,33 @@ app.get("/*", (req, res, next) => {
 		promise = readFileByGulp(req.path);
 	}
 
-	if (promise) {
-		// 将promise的数据传送给res.send()
-		promise.then(file => {
-			// 根据文件的扩展名，先给他设置一个contents-type，后面可能覆盖
-			var type = req.path.replace(/^.*?(\.\w+)?$/, "$1") || req.originalUrl.replace(/^.*?(?:(\.\w+)(?:\?.*)?)?$/, "$1");
-			if (type) {
-				res.type(type);
-			}
-			if (file.etag) {
-				res.set("ETag", file.etag);
-			}
-			res.send(file.contents);
-		}).catch(err => {
-			next(err);
-		});
-	} else {
+	if (!promise) {
 		// gulp木有接受请求
-		next();
+		return next();
 	}
+
+	// 将promise的数据传送给res.send()
+	promise.then(file => {
+		if (!file) {
+			// gulp木有接受请求
+			return next();
+		}
+
+		// 根据文件的扩展名，先给他设置一个contents-type，后面可能覆盖
+		var type = req.path.replace(/^.*?(\.\w+)?$/, "$1") || req.originalUrl.replace(/^.*?(?:(\.\w+)(?:\?.*)?)?$/, "$1");
+		if (type) {
+			res.type(type);
+		}
+		if (file.etag) {
+			res.set("ETag", file.etag);
+		}
+		res.send(file.contents);
+		if (!combo && req.path !== file.relative) {
+			console.warn(`路径发生映射 ${ req.path } => ${ file.relative }`);
+		}
+	}).catch(err => {
+		next(err);
+	});
 });
 
 // 静态资源
