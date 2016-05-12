@@ -1004,11 +1004,11 @@ function getAuthor(dir) {
 		if (repType === "git") {
 			// git环境下要运行的命令
 			// 获取当前分支最后一次的提交用户信息放回数组的json字符串，0是用户名，1是email
-			cmd = `git log --pretty=format:"[\"%aN\",\"%aE\"]" -n 1`;
+			cmd = `git log --pretty=format:"[\\"%aN\\",\\"%aE\\"]" -n 1`;
 		} else if (repType === "hg") {
 			// hg环境下要运行的命令
 			// 获取当前分支最后一次的提交用户信息放回数组的json字符串，0是用户名，1是email，2是原始的作者信息
-			cmd = `hg log --rev . --template "[\"{user(author)}\",\"{email(author)}\", \"{author}\"]"`;
+			cmd = `hg log --rev . --template "[\\"{user(author)}\\",\\"{email(author)}\\", \\"{author}\\"]"`;
 		}
 		// 将提交信息
 		cmd = JSON.parse(require("child_process").execSync(cmd, {
@@ -1016,7 +1016,7 @@ function getAuthor(dir) {
 		}).toString().trim());
 
 		// hg下特殊处理，因为hg的作者信息只有一个字段，并非分为用户名和邮箱两个字段。检查原始的作者信息格式是否为精确的`name <emai@server.com>`格式
-		if (cmd && !/^.+\s+<\w+([-+.]\w+)*@\w+([-.]\w+)*\.\w+([-.]\w+)*>$/.test(cmd[2])) {
+		if (cmd && cmd[2] && !/^.+\s+<\w+([-+.]\w+)*@\w+([-.]\w+)*\.\w+([-.]\w+)*>$/.test(cmd[2])) {
 			// 原始的作者信息不规范时，认为他没有email，删掉
 			cmd.length = 1;
 		}
@@ -1193,12 +1193,10 @@ gulp.task("publish", (cb) => {
 
 						.then(() => {
 							console.log("tag同步成功：", program.diff);
-							return program.diff;
 						})
 
 						.catch(error => {
 							console.error("tag同步出错：", error.message);
-							return error.message;
 						})
 
 						.then(() => {
