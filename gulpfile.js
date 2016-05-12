@@ -931,14 +931,14 @@ function diff(dir, tag) {
 		var regSplit;
 		if (repType === "git") {
 			// git 命令，获取版本差异
-			cmd = `git diff ${ tag } --name-only`;
+			cmd = `git diff ${ tag } --name-only && git status --short`;
 			// 用于分隔git命令返回数据为数组的正则
-			regSplit = /\s*\r?\n\s*/g;
+			regSplit = /\s*\r?\n\s*(?:\?+\s+)?/g;
 		} else if (repType === "hg") {
 			// hg 命令，获取版本差异
-			cmd = `hg diff -r ${ tag } --stat`;
+			cmd = `hg diff -r ${ tag } --stat && hg status --unknown`;
 			// 用于分隔hg命令返回数据为数组的正则
-			regSplit = /\s+\|\s+(?:\d+\s[+-]+|\w+\s*)\r?\n\s*/g;
+			regSplit = /(?:\s*\r?\n\?+\s+)|(?:\s+\|\s+(?:\d+\s[+-]+|\w+\s*)\r?\n\s*)/g;
 		} else {
 			// 未来可能扩展其他类型代码库
 			return repType;
@@ -949,9 +949,12 @@ function diff(dir, tag) {
 			cwd: dir
 		}).toString().trim();
 
-		if (repType === "hg") {
-			// "hg的输出结果有`2228 files changed, 61157 insertions(+), 1857 deletions(-)`这样一行，删掉"
-			files = files.replace(/\s+\d+\s+files\s+changed,\s+\d+\s+insertions\(\+\),\s+\d+\s+deletions\(-\)\s*$/, "\n");
+		if (repType === "git") {
+			// “git status --short”命令输出的内容有未修改等状态的文件，删除掉，只保留"Untracked files"
+			files = files.replace(/(?:^|\n)\s*[A-Z]\s+[^\n]+\n*/, "\n");
+		} else if (repType === "hg") {
+			// hg的输出结果有`2228 files changed, 61157 insertions(+), 1857 deletions(-)`这样一行，删掉
+			files = files.replace(/\s+\d+\s+files\s+changed,\s+\d+\s+insertions\(\+\),\s+\d+\s+deletions\(-\)\s*\n*/, "\n");
 		}
 
 		files = files.split(regSplit);
@@ -1218,6 +1221,7 @@ gulp.task("publish", (cb) => {
 							showHidden: true
 						}), cb);
 					} else {
+						console.log(files.map(file=>file.relative).join("\n"));
 						cb();
 					}
 				}

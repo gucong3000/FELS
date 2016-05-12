@@ -9,8 +9,8 @@ FELS为您提供了一套由gulp驱动的动态开发环境，解决团队开发
 
 1.   安装[Node.js](http://nodejs.org/download/),安装后可能需要重启电脑
 1.   命令行运行 `npm install -g gulp`
-1.   解压 [master.zip](https://github.com/gucong3000/build-script/archive/master.zip) 到项目根目录
-1.   运行`npm install`
+1.   解压 [master.zip](https://github.com/gucong3000/FELS/archive/master.zip) 任意空白目录
+1.   在此目录运行命令`npm install`
 
 >   在国内安装时，**强烈建议**执行以下命令，使用国内镜像安装：
 
