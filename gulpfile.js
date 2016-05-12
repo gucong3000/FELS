@@ -1193,10 +1193,12 @@ gulp.task("publish", (cb) => {
 
 						.then(() => {
 							console.log("tag同步成功：", program.diff);
+							return program.diff;
 						})
 
 						.catch(error => {
 							console.error("tag同步出错：", error.message);
+							return error.message;
 						})
 
 						.then(() => {
@@ -1204,6 +1206,9 @@ gulp.task("publish", (cb) => {
 						})
 
 						.then(author => {
+							if (program.ci) {
+								console.log(files.map(file => file.relative).join("\n"));
+							}
 							console.log("发邮件流程模拟", author);
 							cb();
 						});
@@ -1221,7 +1226,6 @@ gulp.task("publish", (cb) => {
 							showHidden: true
 						}), cb);
 					} else {
-						console.log(files.map(file=>file.relative).join("\n"));
 						cb();
 					}
 				}
