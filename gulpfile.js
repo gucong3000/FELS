@@ -914,6 +914,124 @@ function getRepType(dir) {
 	return repType;
 }
 
+function saveStatus(files, dir, tag) {
+	var filecache;
+	tag = path.resolve(dir) + "#" + tag;
+	dir = path.resolve(dir);
+
+	try {
+		filecache = require();
+	} catch (ex) {
+		filecache = {};
+	}
+
+	var cache = filecache[tag];
+
+	if (!cache) {
+		cache = {};
+		filecache[tag] = cache;
+	}
+
+	files.forEach(file => {
+		if (file.status === "?") {
+			cache[file.relative] = file.stat.mtime.valueOf();
+		}
+	});
+
+	fs.outputJson(path.join(__dirname, "./.filecache.json"), filecache);
+}
+
+/**
+ * 将子路径转为文件对象数组
+ * @param  {Array[String]} 	paths 文件相对路径数组
+ * @param  {String}      	文件根目录
+ * @return Promise     		Promise对象的返回值为 {Vinyl[]} 数组 https://github.com/gulpjs/vinyl
+ */
+function path2vinyl(paths, baseDir) {
+	// 将文件相对路径数组转换成Vinyl数组
+	paths = paths.map(subPath => {
+		var filePath = path.join(baseDir, subPath);
+		return fs.statAsync(filePath)
+
+		.then(stat => {
+			return {
+				base: baseDir,
+				path: filePath,
+				relative: subPath,
+				stat: stat,
+			};
+		}).catch(() => {
+			return null;
+		});
+	});
+
+	// 将整个数组转化为Promise对象
+	return paths = Promise.all(paths)
+
+	// 过滤数组中的空文件
+	.then(files => files.filter(file => file));
+}
+
+/**
+ * 查找不在代码库控制下控制的文件
+ * @param  {String} dir     代码库所在文件夹
+ * @param  {String} repType 代码库类型'hg'或'git'
+ * @return {Array[String]}  文件列表数组
+ */
+function unknown(dir, repType, tag) {
+	// 运行git或者HG命令
+	var cmd;
+	var regSplit;
+	if (repType === "git") {
+		cmd = "git status --short";
+		regSplit = /\s*\r?\n\s*(?:\?+\s+)?/g;
+	} else if (repType === "hg") {
+		cmd = "hg status --unknown";
+		regSplit = /(?:\s*\r?\n\?+\s+)|(?:\s+\|\s+(?:\d+\s[+-]+|\w+\s*)\r?\n\s*)/g;
+	} else {
+		// 未来可能扩展其他类型代码库
+		return repType;
+	}
+
+	// 启动进程获取命令行结果。注意hg下不使用execSync而使用exec，结果会直接输出到控制台，拿不到结果
+	var paths = require("child_process").execSync(cmd, {
+		cwd: dir
+	}).toString().trim().split(/\s*\r?\n\s*/g);
+
+	if (repType === "git") {
+		// “git status --short”命令输出的内容有未修改等状态的文件，删除掉，只保留"Untracked files"
+		paths = paths.filter(subPath => /^\?+/.test(subPath));
+	}
+
+	paths = paths.map(subPath => subPath.replace(/^\?+\s+/, ""));
+
+	return path2vinyl(paths, dir)
+
+	.then(files => {
+		files.forEach(file => {
+			file.status = "?";
+		});
+
+		var filecache;
+
+		try {
+			filecache = require("./.filecache.json");
+		} catch (ex) {
+
+		}
+		if (filecache) {
+			filecache = filecache[dir + "#" + tag];
+			if (filecache) {
+				files.filter(file => {
+					return filecache[file.relative] !== file.stat.mtime.valueOf();
+				});
+			}
+			return files;
+		}
+		return files;
+	});
+}
+
 /**
  * 利用代码仓库tag，获取最近修改过的文件列表
  * @param  {String} dir 代码仓库所在文件夹
@@ -931,14 +1049,14 @@ function diff(dir, tag) {
 		var regSplit;
 		if (repType === "git") {
 			// git 命令，获取版本差异
-			cmd = `git diff ${ tag } --name-only && git status --short`;
+			cmd = `git diff ${ tag } --name-only`;
 			// 用于分隔git命令返回数据为数组的正则
-			regSplit = /\s*\r?\n\s*(?:\?+\s+)?/g;
+			regSplit = /\s*\r?\n\s*/g;
 		} else if (repType === "hg") {
 			// hg 命令，获取版本差异
-			cmd = `hg diff -r ${ tag } --stat && hg status --unknown`;
+			cmd = `hg diff -r ${ tag } --stat`;
 			// 用于分隔hg命令返回数据为数组的正则
-			regSplit = /(?:\s*\r?\n\?+\s+)|(?:\s+\|\s+(?:\d+\s[+-]+|\w+\s*)\r?\n\s*)/g;
+			regSplit = /\s+\|\s+(?:\d+\s[+-]+|\w+\s*)\r?\n\s*/g;
 		} else {
 			// 未来可能扩展其他类型代码库
 			return repType;
@@ -949,46 +1067,18 @@ function diff(dir, tag) {
 			cwd: dir
 		}).toString().trim();
 
-		if (repType === "git") {
-			// “git status --short”命令输出的内容有未修改等状态的文件，删除掉，只保留"Untracked files"
-			files = files.replace(/(?:^|\n)\s*[A-Z]\s+[^\n]+\n*/, "\n");
-		} else if (repType === "hg") {
+		if (repType === "hg") {
 			// hg的输出结果有`2228 files changed, 61157 insertions(+), 1857 deletions(-)`这样一行，删掉
-			files = files.replace(/\s+\d+\s+files\s+changed,\s+\d+\s+insertions\(\+\),\s+\d+\s+deletions\(-\)\s*\n*/, "\n");
+			files = files.replace(/\n*\s+\d+\s+files\s+changed,\s+\d+\s+insertions\(\+\),\s+\d+\s+deletions\(-\)\s*\n*/, "\n");
 		}
 
 		files = files.split(regSplit);
 
-		files = files.filter(subPath => {
-			// 排除空行
-			return subPath;
-		});
+		return Promise.all([path2vinyl(files, dir), unknown(dir, repType, tag)])
 
-		// 将文件相对路径数组转换成Vinyl数组
-		files = files.map(subPath => {
-			var filePath = path.join(dir, subPath);
-			return fs.statAsync(filePath)
-				.then(stat => {
-					return {
-						base: dir,
-						path: filePath,
-						relative: subPath,
-						stat: stat,
-					};
-				}).catch(() => {
-					return null;
-				});
-		});
-
-		// 将整个数组转化为Promise对象
-		files = Promise.all(files)
-
-		// 过滤数组中的空文件
-		.then(files => files.filter(file => file));
-		return files;
+		.then((filesArray) => filesArray[0].concat(filesArray[1]));
 	});
 }
-
 
 /**
  * 获取代码库中当前分支最后一次提交的作者
@@ -1187,6 +1277,7 @@ gulp.task("publish", (cb) => {
 				if (succCount >= files.length) {
 					console.log("上传完毕。");
 					if (program.diff) {
+						saveStatus(files, program.dir, program.diff);
 						console.log("正在同步tag：", program.diff);
 
 						addTag(program.dir, program.diff)
