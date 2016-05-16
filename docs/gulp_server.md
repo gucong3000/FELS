@@ -71,7 +71,7 @@ http://example.com/??style1.css,style2.css,foo/style3.css?v=102234
 ```
 
 前端支持：[seajs-combo](https://github.com/seajs/seajs-combo/issues/3)
-后端支持：[Tengine](http://tengine.taobao.org/),  [nginx-http-combo](https://github.com/alibaba/nginx-http-combo)
+后端支持：[Tengine](http://tengine.taobao.org/),  [nginx-http-concat](https://github.com/alibaba/nginx-http-concat)
 
 ### jsHint报错查询
 
