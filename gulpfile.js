@@ -772,7 +772,7 @@ function fileUploader(configs) {
 	 * @return {Promise} 异步操作对象，Promise格式
 	 */
 	return function(fileVinyl) {
-		var filePath = fileVinyl.relative.match(/^(?:(.*)\/)?([^\/]+)$/);
+		var filePath = fileVinyl.relative.replace(/\\/g, "/").match(/^(?:(.*)\/)?([^\/]+)$/);
 
 		var configfile = {
 			"path": baseDir + (filePath[1] || ""),
@@ -783,7 +783,7 @@ function fileUploader(configs) {
 		var formData = {
 			configfile: JSON.stringify(configfile),
 			imagefile: {
-				value: fs.createReadStream(fileVinyl.path),
+				value: fileVinyl.contents || require("fs").createReadStream(fileVinyl.path),
 				options: {
 					filename: filePath[2],
 					contentType: require("mime-types").lookup(filePath[2]),
