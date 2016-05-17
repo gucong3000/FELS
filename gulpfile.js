@@ -41,7 +41,7 @@ function getFile(callback, debugname) {
 				fileName: file.path,
 				lineNumber: err.line,
 				stack: err.stack,
-				showStack: false
+				showStack: true
 			}));
 		}
 
@@ -1197,7 +1197,15 @@ gulp.task("publish", (cb) => {
 	}
 
 	var getFiles;
-	var author = getAuthor(program.dir);
+	var author;
+	if (program.ci) {
+		getAuthor(program.dir)
+
+		.then(authorInfo => {
+			author = authorInfo;
+		});
+	}
+
 	if (program.diff) {
 		console.log("正在查询与上一版本的文件差异");
 		getFiles = diff(program.dir, program.diff)
@@ -1291,14 +1299,12 @@ gulp.task("publish", (cb) => {
 						})
 
 						.then(() => {
-							return author;
-						})
-
-						.then(author => {
 							if (program.ci) {
 								console.log(files.map(file => file.relative).join("\n"));
+								if (author) {
+									console.log("发邮件流程模拟", author);
+								}
 							}
-							console.log("发邮件流程模拟", author);
 							cb();
 						});
 					} else {
