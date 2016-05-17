@@ -188,6 +188,16 @@ function lineCount(code) {
 }
 
 /**
+ * 检查代码是否压缩版本
+ * @param  {Buffer|String} contents 要检查的代码
+ * @return {Boolean}       代码是否压缩版
+ */
+function isMinFile(contents) {
+	contents = contents.toString();
+	return !contents || /\bsourceMappingURL=[^\n]+\.map\b/.test(contents) || lineCount(contents) < 3;
+}
+
+/**
  * 代码错误汇报函数，在浏览器中运行，用于将jshinit收集到的报出的错误信息在浏览器控制台中弹出
  * 注意！！此函数将被toString()后发送到浏览器，并非在node下运行！！
  * @param  {Array} errors 二维数组，里面的维度，[0]是错误消息，[1]是行号，[2]是列号
@@ -667,14 +677,13 @@ module.exports = (staticRoot, env) => {
 		})
 
 		.then(data => {
-			var contents;
-			if (pipeFn) {
-				contents = data.toString();
+			if (!data) {
+				return;
 			}
 
 			// 如果文件为压缩文件，则不做工作流处理
-			if (contents && (/\bsourceMappingURL=[^\n]+\.map\b/.test(contents) || lineCount(contents) < 3)) {
-				pipeFn = false;
+			if (pipeFn && isMinFile(data)) {
+				pipeFn = null;
 			}
 
 			return new Promise((resolve, reject) => {

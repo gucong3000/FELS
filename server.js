@@ -107,7 +107,7 @@ app.get("/*", (req, res, next) => {
 			res.set("ETag", file.etag);
 		}
 		res.send(file.contents);
-		if (!combo && req.path !== file.relative) {
+		if (!combo && req.path.slice(1) !== file.relative.replace(/\\/g, "/")) {
 			console.warn(`路径发生映射 ${ req.path } => ${ file.relative }`);
 		}
 	}).catch(err => {
