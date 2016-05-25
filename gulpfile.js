@@ -1259,7 +1259,7 @@ gulp.task("publish", (cb) => {
 		var Queue = require("queue-fun").Queue();
 		var queue = new Queue(program.queue, {
 			// 失败时重试次数
-			retryON: program.retry || (program.ci ? 9999 : 20),
+			retryON: program.retry || (program.ci ? 50 : 20),
 			// 失败时搁置
 			retryType: false,
 			// 上传成功
@@ -1291,7 +1291,16 @@ gulp.task("publish", (cb) => {
 				errors.push(err);
 			},
 			event_end: function() {
-				if (succCount >= files.length) {
+				if (errors.length) {
+					if (bar) {
+						console.error("\n上传发生错误，请看日志：" + path.resolve("error.log"));
+						fs.writeFile("error.log", require("util").inspect(errors, {
+							showHidden: true
+						}), cb);
+					} else {
+						cb();
+					}
+				} else {
 					console.log("上传完毕。");
 					if (program.diff) {
 						saveStatus(files, program.dir, program.diff);
@@ -1316,19 +1325,6 @@ gulp.task("publish", (cb) => {
 							}
 							cb();
 						});
-					} else {
-						cb();
-					}
-				} else if (errors.length) {
-					if (program.ci) {
-						// ci模式下不允许失败，重复尝试
-						queue.allArray(errors.filter(err => err && err.file && err.message !== "imagefile is empty").map(err => err.file), uploader);
-						queue.start();
-					} else if (bar) {
-						console.error("\n上传发生错误，请看日志：" + path.resolve("error.log"));
-						fs.writeFile("error.log", require("util").inspect(errors, {
-							showHidden: true
-						}), cb);
 					} else {
 						cb();
 					}
