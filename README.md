@@ -33,13 +33,13 @@ gulp server <options>
 gulp publish <options>
 ```
 
-## 文件自动修复(beta)
+## [文件自动修复(beta)](./docs/gulp_fix.md)
 
 ```bash
 gulp fix <options>
 ```
 
-按照[CSS规范](./docs/style_standard.md)或者[JS规范](./docs/script_standard.md)自动修复源文件
+按照[样式规范](./docs/style_standard.md)或者[JS规范](./docs/script_standard.md)自动修复源文件
 
 ## [安装 Jenkins 代码库钩子](./docs/gulp_jenkins.md) (release)
 

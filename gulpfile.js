@@ -490,12 +490,7 @@ function cssBeautify(stream, lazy) {
 		beautify: function(css, config, file) {
 			var postcss = require("postcss");
 			var processors = [
-				require("postcss-gradientfixer"),
-				require("postcss-flexboxfixer"),
-				require("autoprefixer")({
-					add: false,
-					browsers: []
-				})
+				require("postcss-unprefix"),
 			];
 			return postcss(processors).process(css).then(result => {
 				var comb = new require("csscomb")(config || "csscomb");
