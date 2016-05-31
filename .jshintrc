@@ -1,17 +1,17 @@
 {
-	"browser": true,
 	"boss": true,
+	"browser": true,
 	"curly": true,
 	"eqeqeq": true,
 	"eqnull": true,
+	"esversion": 6,
 	"expr": true,
+	"globals": false,
 	"immed": true,
 	"noarg": true,
-	"quotmark": true,
-	"undef": true,
-	"unused": true,
-	"strict": true,
-	"esversion": 6,
 	"node": true,
-	"globals": false
+	"quotmark": true,
+	"strict": true,
+	"undef": true,
+	"unused": true
 }
