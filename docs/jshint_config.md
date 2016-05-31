@@ -38,7 +38,7 @@
 	//变量声明了但不使用会被警告
 	"unused": true,
 	//必须使用use strict;语法 
-	"strict": "global",
+	"strict": true,
 	//ECMAScript 版本号
 	"esversion": 6,
 	// 声明 node 运行环境
