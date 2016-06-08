@@ -1,10 +1,15 @@
 {
-  "rules": {
-    "color-no-invalid-hex": true,
-    "declaration-colon-space-after": "always",
-    "max-empty-lines": 2,
-    "indentation": ["tab", {
-      "except": ["value"]
-    }]
-  }
+	"rules": {
+		"color-no-invalid-hex": true,
+		"declaration-colon-space-after": "always",
+		"indentation": [
+			{
+				"except": [
+					"value"
+				]
+			},
+			"tab"
+		],
+		"max-empty-lines": 2
+	}
 }

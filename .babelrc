@@ -1,12 +1,14 @@
 {
-	"presets": ["es2015"],
 	"ignore": [
 		"**/*-min.js",
 		"**/*.min.js",
 		"**/browser.js",
-		"**/jquery.js",
 		"**/jquery-1.*.js",
 		"**/jquery-2.*.js",
+		"**/jquery.js",
 		"**/polyfill/**/*"
+	],
+	"presets": [
+		"es2015"
 	]
 }

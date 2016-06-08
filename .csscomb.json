@@ -6,10 +6,10 @@
 	"element-case": "lower",
 	"eof-newline": true,
 	"exclude": [
-		".hg/**",
 		".git/**",
-		"node_modules/**",
-		"bower_components/**"
+		".hg/**",
+		"bower_components/**",
+		"node_modules/**"
 	],
 	"leading-zero": false,
 	"quotes": "double",

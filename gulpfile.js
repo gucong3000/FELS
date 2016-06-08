@@ -374,6 +374,32 @@ notifier.on("timeout", function() {
 	notify();
 });
 
+var jsonBeautify = getFile(contents => {
+	console.log(contents);
+	var json;
+	try {
+		json = eval.call(0, "(" + contents + ")");
+	} catch (ex) {
+		return contents;
+	}
+	json = JSON.stringify(sortObj(json), null, "\t");
+	return json;
+});
+
+function sortObj(value) {
+	if (Array.isArray(value)) {
+		return value.sort().map(sortObj);
+	} else if (typeof value === "object") {
+		var result = {};
+		Object.keys(value).sort().forEach(key => {
+			result[key] = sortObj(value[key]);
+		});
+		return result;
+	} else {
+		return value;
+	}
+}
+
 function notify() {
 	function show(filePath) {
 		notifyBasy = true;
@@ -1378,16 +1404,24 @@ gulp.task("fix", () => {
 	}
 
 	var src = program.src;
-	var dest = program.dest || src.replace(/[^\\\/]+$/, "");
+	var dest = program.dest || src.replace(/[^\\\/]+$/, "") || "./";
 	var gulpif = require("gulp-if");
 
 	return gulp.src(src)
 
 	.pipe(gulpif((file) => {
-		return /\.(?:|js|es\d|ts|coffee)$/.test(file.path);
-	}, jsBeautify(), cssBeautify()))
+		return /\.(?:less|scss|css)$/.test(file.path);
+	}, cssBeautify()))
 
-	.pipe(gulp.dest(dest));
+	.pipe(gulpif((file) => {
+		return /\.(?:js|es\d|ts|coffee)$/.test(file.path);
+	}, jsBeautify()))
+
+	.pipe(gulpif((file) => {
+		return /\.(?:json|sublime-\w+)$/.test(file.path) || /[\\/]\.\w+rc$/.test(file.path);
+	}, jsonBeautify))
+
+	.pipe(dest ? gulp.dest(dest) : getFile(contents => console.log(contents)));
 });
 
 gulp.task("Jenkins", () => {
