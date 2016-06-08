@@ -316,56 +316,6 @@ contents
 
 var RcLoader = require("rcloader");
 var rcCache = {};
-var defaultOpts = {
-	// Stylelint config rules
-	".csscomb.json": {
-		// Whether to add a semicolon after the last value/mixin.
-		"always-semicolon": true,
-		// Set indent for code inside blocks, including media queries and nested rules.
-		"block-indent": "\t",
-		// Unify case of hexadecimal colors.
-		"color-case": "lower",
-		// Whether to expand hexadecimal colors or use shorthands.
-		"color-shorthand": true,
-		// Unify case of element selectors.
-		"element-case": "lower",
-		// Add/remove line break at EOF.
-		"eof-newline": true,
-		// Add/remove leading zero in dimensions.
-		"leading-zero": false,
-		// Unify quotes style.
-		"quotes": "double",
-		// Remove all rulesets that contain nothing but spaces.
-		"remove-empty-rulesets": true,
-		"sort-order-fallback": "abc",
-		// Set space after `:` in declarations.
-		"space-after-colon": " ",
-		// Set space after combinator (for example, in selectors like `p > a`).
-		"space-after-combinator": " ",
-		// Set space after `{`.
-		"space-after-opening-brace": "\n",
-		// Set space after selector delimiter.
-		"space-after-selector-delimiter": "\n",
-		// Set space before `}`.
-		"space-before-closing-brace": "\n",
-		// Set space before `:` in declarations.
-		"space-before-colon": "",
-		// Set space before combinator (for example, in selectors like `p > a`).
-		"space-before-combinator": " ",
-		// Set space before `{`.
-		"space-before-opening-brace": " ",
-		// Set space before selector delimiter.
-		"space-before-selector-delimiter": "",
-		// Set space between declarations (i.e. `color: tomato`).
-		"space-between-declarations": "\n",
-		// Whether to trim trailing spaces.
-		"strip-spaces": true,
-		"tab-size": true,
-		// Whether to remove units in zero-valued dimensions.
-		"unitless-zero": true
-	}
-};
-
 var cacheNotification = {};
 var notifyBasy;
 var notifier = require("node-notifier");
@@ -375,7 +325,6 @@ notifier.on("timeout", function() {
 });
 
 var jsonBeautify = getFile(contents => {
-	console.log(contents);
 	var json;
 	try {
 		json = eval.call(0, "(" + contents + ")");
@@ -445,8 +394,8 @@ function notify() {
  */
 function codeBeautify(stream, opts) {
 	var plugin = getFile((code, file) => {
-		var rcLoader = rcCache[opts.rcName] || (rcCache[opts.rcName] = new RcLoader(opts.rcName, defaultOpts[opts.rcName] || (defaultOpts[opts.rcName] = {}), {
-			loader: "async"
+		var rcLoader = rcCache[opts.rcName] || (rcCache[opts.rcName] = new RcLoader(opts.rcName, {
+			defaultFile: path.join(__dirname, opts.rcName),
 		}));
 
 		var filePath = file.path;
@@ -456,7 +405,7 @@ function codeBeautify(stream, opts) {
 		function lazyResult(resolve) {
 			rcLoader.for(filePath, function(err, rc) {
 				if (err) {
-					rc = defaultOpts[opts.rcName];
+					rc = {};
 				}
 				opts.beautify(code, rc, file).then(newCode => {
 					// 是否生成了新代码
@@ -1393,7 +1342,7 @@ gulp.task("fix", () => {
 
 	program
 		.option("--src [path]", "要修复的文件路径，glob格式", String, "")
-		.option("--dest [path]", "文件保存路径，缺省为--src所在的文件夹", String)
+		.option("--dest [path]", "文件保存路径", String, "")
 
 	.parse(process.argv);
 
@@ -1404,7 +1353,7 @@ gulp.task("fix", () => {
 	}
 
 	var src = program.src;
-	var dest = program.dest || src.replace(/[^\\\/]+$/, "") || "./";
+	var dest = program.dest;
 	var gulpif = require("gulp-if");
 
 	return gulp.src(src)
@@ -1421,7 +1370,7 @@ gulp.task("fix", () => {
 		return /\.(?:json|sublime-\w+)$/.test(file.path) || /[\\/]\.\w+rc$/.test(file.path);
 	}, jsonBeautify))
 
-	.pipe(dest ? gulp.dest(dest) : getFile(contents => console.log(contents)));
+	.pipe(dest && !/\.\w+$/.test(dest) ? gulp.dest(dest) : getFile(contents => fs.outputFile(dest || src, contents)));
 });
 
 gulp.task("Jenkins", () => {
