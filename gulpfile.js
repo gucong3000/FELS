@@ -1262,14 +1262,17 @@ gulp.task("publish", (cb) => {
 			},
 			event_end: function() {
 				if (errors.length) {
-					if (bar) {
-						console.error("\n上传发生错误，请看日志：" + path.resolve("error.log"));
-						fs.writeFile("error.log", require("util").inspect(errors, {
-							showHidden: true
-						}), cb);
-					} else {
-						cb();
-					}
+					errors = errors.map(error => {
+						if (error.file) {
+							error.file = error.file.relative || error.file;
+						}
+						return error;
+					});
+					errors = require("util").inspect(errors, {
+						showHidden: true
+					});
+					console.error(errors);
+					cb();
 				} else {
 					console.log("上传完毕。");
 					if (program.diff) {
