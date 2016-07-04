@@ -896,10 +896,9 @@ function getRepType(dir) {
 function saveStatus(files, dir, tag) {
 	var filecache;
 	tag = path.resolve(dir) + "#" + tag;
-	dir = path.resolve(dir);
 
 	try {
-		filecache = require();
+		filecache = require("./.filecache.json");
 	} catch (ex) {
 		filecache = {};
 	}
