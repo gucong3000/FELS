@@ -36,15 +36,13 @@ gulp publish <options>
 ## [文件自动修复(beta)](./docs/gulp_fix.md)
 
 ```bash
-gulp fix <options>
+gulp fix --src path/to/your/js
 ```
 
 按照[样式规范](./docs/style_standard.md)或者[JS规范](./docs/script_standard.md)自动修复源文件
 
-## [安装 Jenkins 代码库钩子](./docs/gulp_jenkins.md) (release)
+## [安装代码库钩子](./docs/gulp_hook.md) (dev)
 
 ```bash
-gulp Jenkins <options>
+gulp hook --src ../path/to/your/project
 ```
-
-> 以上命令的详细帮助，可使用 `--info` 查看。功能名称后的括号内，代表该功能目前开发状态

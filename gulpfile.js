@@ -79,28 +79,6 @@ function getFile(callback, debugname) {
 	});
 }
 
-// Stylelint config rules
-var stylelintConfig = {
-	"rules": {
-		"block-no-empty": true,
-		"color-no-invalid-hex": true,
-		"declaration-colon-space-after": "always",
-		"declaration-colon-space-before": "never",
-		"function-comma-space-after": "always",
-		"function-url-quotes": "double",
-		"media-feature-colon-space-after": "always",
-		"media-feature-colon-space-before": "never",
-		"media-feature-name-no-vendor-prefix": true,
-		"max-empty-lines": 5,
-		"number-leading-zero": "never",
-		"number-no-trailing-zeros": true,
-		"property-no-vendor-prefix": true,
-		"selector-list-comma-space-before": "never",
-		"selector-list-comma-newline-after": "always",
-		"string-quotes": "double",
-		"value-no-vendor-prefix": true
-	}
-};
 // Stylelint reporter config
 var warnIcon = encodeURIComponent(`<svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" width="48px" height="48px" viewBox="0 0 512 512" enable-background="new 0 0 512 512" xml:space="preserve"><path fill="#A82734" id="warning-4-icon" d="M228.55,134.812h54.9v166.5h-54.9V134.812z M256,385.188c-16.362,0-29.626-13.264-29.626-29.625c0-16.362,13.264-29.627,29.626-29.627c16.361,0,29.625,13.265,29.625,29.627C285.625,371.924,272.361,385.188,256,385.188z M256,90c91.742,0,166,74.245,166,166c0,91.741-74.245,166-166,166c-91.742,0-166-74.245-166-166C90,164.259,164.245,90,256,90z M256,50C142.229,50,50,142.229,50,256s92.229,206,206,206s206-92.229,206-206S369.771,50,256,50z"/></svg>`);
 var stylelintReporterConfig = {
@@ -510,7 +488,7 @@ function jsBeautify(stream, lazy) {
 // css工作流
 function cssPipe(stream) {
 	var processors = [
-		isDev ? require("stylelint")(stylelintConfig) : null,
+		isDev ? require("stylelint")() : null,
 		// css未来标准提前使用
 		require("postcss-cssnext")({
 			features: {
@@ -956,64 +934,46 @@ function path2vinyl(paths, baseDir) {
  * @param  {String} repType 代码库类型'hg'或'git'
  * @return {Array[String]}  文件列表数组
  */
-function unknown(dir, repType, tag) {
-	// 运行git或者HG命令
-	var cmd;
-	var regSplit;
-	if (repType === "git") {
-		cmd = "git status --short";
-		regSplit = /\s*\r?\n\s*(?:\?+\s+)?/g;
-	} else if (repType === "hg") {
-		cmd = "hg status --unknown";
-		regSplit = /(?:\s*\r?\n\?+\s+)|(?:\s+\|\s+(?:\d+\s[+-]+|\w+\s*)\r?\n\s*)/g;
-	} else {
-		// 未来可能扩展其他类型代码库
-		return repType;
-	}
+function unknown(dir) {
+	dir = path.resolve(dir);
 
-	// 启动进程获取命令行结果。注意hg下不使用execSync而使用exec，结果会直接输出到控制台，拿不到结果
-	var paths = require("child_process").execSync(cmd, {
-		cwd: dir
-	}).toString().trim().split(/\s*\r?\n\s*/g);
+	return getRepType(dir)
 
-	if (repType === "git") {
-		// “git status --short”命令输出的内容有未修改等状态的文件，删除掉，只保留"Untracked files"
-		paths = paths.filter(subPath => /^\?+/.test(subPath));
-	}
-
-	paths = paths.map(subPath => subPath.replace(/^\?+\s+/, ""));
-
-	return path2vinyl(paths, dir)
-
-	.then(files => {
-		files.forEach(file => {
-			file.status = "?";
-		});
-
-		var filecache;
-
-		try {
-			filecache = require("./.filecache.json");
-		} catch (ex) {
-
+	.then((repType) => {
+		// 运行git或者HG命令
+		var cmd;
+		var regSplit;
+		if (repType === "git") {
+			cmd = "git status --short";
+			regSplit = /\s*\r?\n\s*(?:\?+\s+)?/g;
+		} else if (repType === "hg") {
+			cmd = "hg status --unknown";
+			regSplit = /(?:\s*\r?\n\?+\s+)|(?:\s+\|\s+(?:\d+\s[+-]+|\w+\s*)\r?\n\s*)/g;
+		} else {
+			// 未来可能扩展其他类型代码库
+			return repType;
 		}
-		if (filecache) {
-			filecache = filecache[dir + "#" + tag];
-			if (filecache) {
-				files.filter(file => {
-					return filecache[file.relative] !== file.stat.mtime.valueOf();
-				});
-			}
-			return files;
+
+		// 启动进程获取命令行结果。注意hg下不使用execSync而使用exec，结果会直接输出到控制台，拿不到结果
+		var paths = require("child_process").execSync(cmd, {
+			cwd: dir
+		}).toString().trim().split(/\s*\r?\n\s*/g);
+
+		if (repType === "git") {
+			// “git status --short”命令输出的内容有未修改等状态的文件，删除掉，只保留"Untracked files"
+			paths = paths.filter(subPath => /^\?+/.test(subPath));
 		}
-		return files;
+
+		paths = paths.map(subPath => subPath.replace(/^\?+\s+/, ""));
+
+		return paths;
 	});
 }
 
 /**
  * 利用代码仓库tag，获取最近修改过的文件列表
  * @param  {String} dir 代码仓库所在文件夹
- * @param  {String} tag tag名称
+ * @param  {[String]} tag tag名称，此参数留空则会查询待提交的文件
  * @return Promise     Promise对象的返回值为 {Vinyl[]} 数组 https://github.com/gulpjs/vinyl
  */
 function diff(dir, tag) {
@@ -1024,17 +984,21 @@ function diff(dir, tag) {
 	.then((repType) => {
 		// 运行git或者HG命令
 		var cmd;
-		var regSplit;
+		var regSplit = /\s*\r?\n\s*/g;
 		if (repType === "git") {
 			// git 命令，获取版本差异
-			cmd = `git diff ${ tag } --name-only`;
+			cmd = `git diff ${ tag || "--cached" } --name-only`;
 			// 用于分隔git命令返回数据为数组的正则
-			regSplit = /\s*\r?\n\s*/g;
 		} else if (repType === "hg") {
-			// hg 命令，获取版本差异
-			cmd = `hg diff -r ${ tag } --stat`;
-			// 用于分隔hg命令返回数据为数组的正则
-			regSplit = /\s+\|\s+(?:\d+\s[+-]+|\w+\s*)\r?\n\s*/g;
+			if (tag) {
+				// hg 命令，获取版本差异
+				cmd = `hg diff -r ${ tag } --stat`;
+				// 用于分隔hg命令返回数据为数组的正则
+				regSplit = /\s+\|\s+(?:\d+\s[+-]+|\w+\s*)\r?\n\s*/g;
+			} else {
+				// hg 命令，获取等待提交的文件
+				cmd = "hg status --modified --added --no-status";
+			}
 		} else {
 			// 未来可能扩展其他类型代码库
 			return repType;
@@ -1052,9 +1016,20 @@ function diff(dir, tag) {
 
 		files = files.split(regSplit);
 
-		return Promise.all([path2vinyl(files, dir), unknown(dir, repType, tag)])
+		files = files.filter(file => file);
 
-		.then((filesArray) => filesArray[0].concat(filesArray[1]));
+		return files;
+	});
+}
+
+/**
+ * 获得代码库中的新文件
+ */
+
+function getNewFiles(dir, tag) {
+	dir = path.resolve(dir);
+	return Promise.all([diff(dir, tag), unknown(dir, tag)]).then(filesArray => {
+		return path2vinyl(filesArray[0].concat(filesArray[1]), dir);
 	});
 }
 
@@ -1186,7 +1161,7 @@ gulp.task("publish", (cb) => {
 
 	if (program.diff) {
 		console.log("正在查询与上一版本的文件差异");
-		getFiles = diff(program.dir, program.diff)
+		getFiles = getNewFiles(program.dir, program.diff)
 
 		.catch(ex => {
 			console.error("获取代码库版本差异出错：", ex.message);
@@ -1375,78 +1350,145 @@ gulp.task("fix", () => {
 	.pipe(dest && !/\.\w+$/.test(dest) ? gulp.dest(dest) : getFile(contents => fs.outputFile(dest || src, contents)));
 });
 
-gulp.task("Jenkins", () => {
-
-	// 获取命令行参数
-	var program = new(require("commander").Command)("gulp Jenkins");
+gulp.task("hook", () => {
+	var program = new(require("commander").Command)("gulp precommit");
 
 	program
-		.option("--url [url]", "Jenkins的url", String, "")
-		.option("--path [path]", "要安装钩子的仓库路径", String, ".")
+		.option("--src [path]", "项目根目录路径", String, ".")
 
 	.parse(process.argv);
 
-	if (!program.path || !program.url) {
-		// 显示帮助信息
-		program.help();
-		return;
-	}
+	var cmd = "gulp --gulpfile " + path.relative(program.src, __filename).replace(/\\/g, "/") + " precommit --src " + program.src;
 
-	function urlResolve(pathname) {
-		// 将路径名称与program.url拼接为完整url
-		return require("url").resolve(program.url, pathname);
-	}
-
-	function readFile(filePath) {
-		// 读取文本文件，拿到内容转换为字符串，再转换ini文件内容为对象
-		return fs.readFileAsync(filePath).then(contents => require("ini").parse(contents.toString()));
-	}
-
-	// 判断代码库类型
-	return getRepType(program.path)
+	return getRepType(program.src)
 
 	.then(type => {
-		var filePath;
 		if (type === "git") {
-			// 读取git配置文件
-			filePath = path.join(program.path, ".git/config");
-			return readFile(filePath)
+			return fs.outputFileAsync(path.join(program.src, ".git/hooks/pre-commit"), "#!/bin/sh\n" + cmd);
+		} else if (type === "hg") {
+			var ini = require("ini");
 
-			.then(config => {
-				// 配置文件转为ini格式
-				var cmd = "#!/bin/sh\ncurl " + urlResolve("git/notifyCommit?url=" + config["remote \"origin\""].url);
-				// 写入post-receive文件
-				return fs.outputFileAsync(path.join(program.path, ".git/hooks/post-receive"), cmd);
-			});
-		} else if (type = "hg") {
 			// 读取hg配置文件
-			filePath = path.join(program.path, ".hg/hgrc");
-			return readFile(filePath)
+			var filePath = path.join(program.src, ".hg/hgrc");
+			return fs.readFileAsync(filePath)
+
+			.then(contents => ini.parse(contents.toString()))
 
 			.then(config => {
-				var cmd = "curl " + urlResolve("mercurial/notifyCommit?url=" + config.paths.default);
 
 				// 配置文件中已有Jenkins触发命令
-				if (config.hooks && config.hooks["changegroup.jenkins"] === cmd && config.hooks["incoming.jenkins"] === cmd) {
+				if (config.hooks && config.hooks["precommit.fels"]) {
 					return cmd;
 				}
 
-				// 发现 `ini` 这个模块会给值加上多余的双引号，所以这里使用这个变态的办法
 				config.hooks = Object.assign(config.hooks || {}, {
-					"changegroup.jenkins": "${ Jenkins }",
-					"incoming.jenkins": "${ Jenkins }",
+					"precommit.fels": cmd,
 				});
 
 				// 将对象转换为ini文件格式的字符串
-				var ini = require("ini");
 				config = ini.stringify(config, {
 					whitespace: true
 				});
 
-				// `ini` 这个模块太讨厌了，自作多情转译了值，只好这样保存啦
-				config = config.replace(/\$\{\s*Jenkins\s*\}/g, cmd);
 				// 写入hg配置文件
 				return fs.writeFileAsync(filePath, config);
+			});
+
+		}
+	});
+});
+
+gulp.task("precommit", () => {
+	var program = new(require("commander").Command)("gulp precommit");
+
+	program
+		.option("--src [path]", "项目根目录路径", String, ".")
+
+	.parse(process.argv);
+
+	return diff(program.src)
+
+	.then(files => {
+
+		files = files.filter(function(path) {
+			// 将压缩文件排除
+			return !(/[\.\-]min\.\w+$/.test(path));
+		});
+
+		var jsFiles = files.filter(function(path) {
+			// 将js文件单独列出
+			return /\.js$/.test(path);
+		});
+
+		var cssFiles = files.filter(function(path) {
+			// 将css文件单独列出
+			return /\.css$/.test(path);
+		});
+
+		var result = [];
+
+		var gulpTxtChenged = require("./lib/gulp-text-chenged");
+		var txtChenged = gulpTxtChenged({
+			cache: {},
+		});
+
+		function src(files) {
+			return gulp.src(files, {
+				cwd: program.src,
+				base: program.src,
+			})
+
+			.pipe(txtChenged)
+
+			.pipe(require("gulp-stripbom")({
+				showLog: false,
+			}))
+
+			.pipe(require("./lib/gulp-eol")());
+		}
+
+		if (jsFiles.length) {
+			// jshint检查js文件
+			var jshint = require("gulp-jshint");
+			result.push(
+				src(jsFiles)
+
+				.pipe(jsBeautify())
+
+				.pipe(jshint()).pipe(jshint.reporter())
+
+				.pipe(jshint.reporter("fail"))
+			);
+		}
+
+		if (cssFiles.length) {
+			// css 代码审查
+			var csscomb = require("gulp-csscomb");
+
+			result.push(
+				src(cssFiles)
+
+				.pipe(csscomb())
+
+			);
+		}
+
+		if (result.length) {
+			// 代码审查异步结果处理
+			result = result.map(stream => {
+				return new Promise((resolve, reject) => {
+					stream = stream
+						.pipe(txtChenged)
+						.pipe(gulp.dest(program.src));
+
+					stream.on("end", resolve);
+					stream.on("error", reject);
+					process.nextTick(resolve);
+				});
+			});
+
+			return Promise.all(result).then(() => {
+				return gulpTxtChenged.saveGlobalCache();
 			});
 		}
 	});
