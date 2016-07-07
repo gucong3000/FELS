@@ -253,7 +253,7 @@ function jsPipe(stream) {
 		// js 代码风格检查
 		var jshint = require("gulp-jshint");
 
-		require("./jshint-msg");
+		require("./lib/jshint-msg");
 		stream = stream.pipe(jshint());
 	} else {
 		stream = stream.pipe(require("gulp-sourcemaps").init())
@@ -987,7 +987,7 @@ function diff(dir, tag) {
 		var regSplit = /\s*\r?\n\s*/g;
 		if (repType === "git") {
 			// git 命令，获取版本差异
-			cmd = `git diff ${ tag || "--cached" } --name-only`;
+			cmd = `git config core.quotepath false && git diff ${ tag || "--cached" } --name-only && git config --unset core.quotepath`;
 			// 用于分隔git命令返回数据为数组的正则
 		} else if (repType === "hg") {
 			if (tag) {
@@ -1007,7 +1007,14 @@ function diff(dir, tag) {
 		// 启动进程获取命令行结果。注意hg下不使用execSync而使用exec，结果会直接输出到控制台，拿不到结果
 		var files = require("child_process").execSync(cmd, {
 			cwd: dir
-		}).toString().trim();
+		});
+
+		if (repType === "hg") {
+			// hg输出的信息需要进行中文转码
+			files = require("iconv-lite").decode(files, "GBK");
+		}
+
+		files = files.toString().trim();
 
 		if (repType === "hg") {
 			// hg的输出结果有`2228 files changed, 61157 insertions(+), 1857 deletions(-)`这样一行，删掉
@@ -1434,8 +1441,9 @@ gulp.task("precommit", () => {
 
 		function src(files) {
 			return gulp.src(files, {
-				cwd: program.src,
+				allowEmpty: true,
 				base: program.src,
+				cwd: program.src,
 			})
 
 			.pipe(txtChenged)
@@ -1455,7 +1463,9 @@ gulp.task("precommit", () => {
 
 				.pipe(jsBeautify())
 
-				.pipe(jshint()).pipe(jshint.reporter())
+				.pipe(jshint())
+
+				.pipe(require("./lib/gulp-reporter")())
 
 				.pipe(jshint.reporter("fail"))
 			);

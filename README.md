@@ -33,7 +33,7 @@ gulp server <options>
 gulp publish <options>
 ```
 
-## [文件自动修复(beta)](./docs/gulp_fix.md)
+## [文件自动修复](./docs/gulp_fix.md) (beta)
 
 ```bash
 gulp fix --src path/to/your/js

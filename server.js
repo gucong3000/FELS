@@ -141,7 +141,7 @@ if (app.get("env") === "development") {
 		E: "errors",
 	};
 	let apiDataCache = {};
-	require("./jshint-msg");
+	require("./lib/jshint-msg");
 
 	app.get("/jshint/*", (req, res, next) => {
 		let msgCode;
