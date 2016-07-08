@@ -833,44 +833,6 @@ function fsWalker(rootDir) {
 	});
 }
 
-var repTypeCache = {};
-
-/**
- * 获取本地文件夹个代码仓库类型
- * @param  {String} dir 文件夹路径
- * @return Promise     Promise对象的返回值为的"git"或"hg"
- */
-function getRepType(dir) {
-	var repType = repTypeCache[dir];
-
-	if (!repType) {
-		repType = fs.statAsync(path.join(dir, ".git"))
-
-		.then(stat => {
-			if (stat.isDirectory()) {
-				return "git";
-			} else {
-				throw new Error("不是git项目");
-			}
-		})
-
-		.catch(() => {
-			return fs.statAsync(path.join(dir, ".hg"))
-
-			.then(stat => {
-				if (stat.isDirectory()) {
-					return "hg";
-				} else {
-					throw new Error("不是hg项目");
-				}
-			});
-
-		});
-		repTypeCache[dir] = repType;
-	}
-	return repType;
-}
-
 function saveStatus(files, dir, tag) {
 	var filecache;
 	tag = path.resolve(dir) + "#" + tag;
@@ -929,190 +891,12 @@ function path2vinyl(paths, baseDir) {
 }
 
 /**
- * 查找不在代码库控制下控制的文件
- * @param  {String} dir     代码库所在文件夹
- * @param  {String} repType 代码库类型'hg'或'git'
- * @return {Array[String]}  文件列表数组
- */
-function unknown(dir) {
-	dir = path.resolve(dir);
-
-	return getRepType(dir)
-
-	.then((repType) => {
-		// 运行git或者HG命令
-		var cmd;
-		var regSplit;
-		if (repType === "git") {
-			cmd = "git status --short";
-			regSplit = /\s*\r?\n\s*(?:\?+\s+)?/g;
-		} else if (repType === "hg") {
-			cmd = "hg status --unknown";
-			regSplit = /(?:\s*\r?\n\?+\s+)|(?:\s+\|\s+(?:\d+\s[+-]+|\w+\s*)\r?\n\s*)/g;
-		} else {
-			// 未来可能扩展其他类型代码库
-			return repType;
-		}
-
-		// 启动进程获取命令行结果。注意hg下不使用execSync而使用exec，结果会直接输出到控制台，拿不到结果
-		var paths = require("child_process").execSync(cmd, {
-			cwd: dir
-		}).toString().trim().split(/\s*\r?\n\s*/g);
-
-		if (repType === "git") {
-			// “git status --short”命令输出的内容有未修改等状态的文件，删除掉，只保留"Untracked files"
-			paths = paths.filter(subPath => /^\?+/.test(subPath));
-		}
-
-		paths = paths.map(subPath => subPath.replace(/^\?+\s+/, ""));
-
-		return paths;
-	});
-}
-
-/**
- * 利用代码仓库tag，获取最近修改过的文件列表
- * @param  {String} dir 代码仓库所在文件夹
- * @param  {[String]} tag tag名称，此参数留空则会查询待提交的文件
- * @return Promise     Promise对象的返回值为 {Vinyl[]} 数组 https://github.com/gulpjs/vinyl
- */
-function diff(dir, tag) {
-	dir = path.resolve(dir);
-
-	return getRepType(dir)
-
-	.then((repType) => {
-		// 运行git或者HG命令
-		var cmd;
-		var regSplit = /\s*\r?\n\s*/g;
-		if (repType === "git") {
-			// git 命令，获取版本差异
-			cmd = `git config core.quotepath false && git diff ${ tag || "--cached" } --name-only && git config --unset core.quotepath`;
-			// 用于分隔git命令返回数据为数组的正则
-		} else if (repType === "hg") {
-			if (tag) {
-				// hg 命令，获取版本差异
-				cmd = `hg diff -r ${ tag } --stat`;
-				// 用于分隔hg命令返回数据为数组的正则
-				regSplit = /\s+\|\s+(?:\d+\s[+-]+|\w+\s*)\r?\n\s*/g;
-			} else {
-				// hg 命令，获取等待提交的文件
-				cmd = "hg status --modified --added --no-status";
-			}
-		} else {
-			// 未来可能扩展其他类型代码库
-			return repType;
-		}
-
-		// 启动进程获取命令行结果。注意hg下不使用execSync而使用exec，结果会直接输出到控制台，拿不到结果
-		var files = require("child_process").execSync(cmd, {
-			cwd: dir
-		});
-
-		if (repType === "hg") {
-			// hg输出的信息需要进行中文转码
-			files = require("iconv-lite").decode(files, "GBK");
-		}
-
-		files = files.toString().trim();
-
-		if (repType === "hg") {
-			// hg的输出结果有`2228 files changed, 61157 insertions(+), 1857 deletions(-)`这样一行，删掉
-			files = files.replace(/\n*\s+\d+\s+files\s+changed,\s+\d+\s+insertions\(\+\),\s+\d+\s+deletions\(-\)\s*\n*/, "\n");
-		}
-
-		files = files.split(regSplit);
-
-		files = files.filter(file => file);
-
-		return files;
-	});
-}
-
-/**
  * 获得代码库中的新文件
  */
-
 function getNewFiles(dir, tag) {
 	dir = path.resolve(dir);
-	return Promise.all([diff(dir, tag), unknown(dir, tag)]).then(filesArray => {
+	return Promise.all([require("./lib/getrepdiff")(dir, tag), require("./lib/getrepunknown")(dir, tag)]).then(filesArray => {
 		return path2vinyl(filesArray[0].concat(filesArray[1]), dir);
-	});
-}
-
-/**
- * 获取代码库中当前分支最后一次提交的作者
- * @param  {String}		dir 版本库所在的文件夹
- * @return {Promise}	Promise内的值为数组，0为作者名字，1为作者邮箱
- */
-function getAuthor(dir) {
-	dir = path.resolve(dir);
-	return getRepType(dir)
-
-	.then(repType => {
-		var cmd;
-		if (repType === "git") {
-			// git环境下要运行的命令
-			// 获取当前分支最后一次的提交用户信息放回数组的json字符串，0是用户名，1是email
-			cmd = `git log --pretty=format:"[\\"%aN\\",\\"%aE\\"]" -n 1`;
-		} else if (repType === "hg") {
-			// hg环境下要运行的命令
-			// 获取当前分支最后一次的提交用户信息放回数组的json字符串，0是用户名，1是email，2是原始的作者信息
-			cmd = `hg log --rev . --template "[\\"{user(author)}\\",\\"{email(author)}\\", \\"{author}\\"]"`;
-		}
-		// 将提交信息
-		cmd = JSON.parse(require("child_process").execSync(cmd, {
-			cwd: dir
-		}).toString().trim());
-
-		// hg下特殊处理，因为hg的作者信息只有一个字段，并非分为用户名和邮箱两个字段。检查原始的作者信息格式是否为精确的`name <emai@server.com>`格式
-		if (cmd && cmd[2] && !/^.+\s+<\w+([-+.]\w+)*@\w+([-.]\w+)*\.\w+([-.]\w+)*>$/.test(cmd[2])) {
-			// 原始的作者信息不规范时，认为他没有email，删掉
-			cmd.length = 1;
-		}
-
-		return cmd;
-	});
-}
-
-/**
- * 对代码库打tag
- * @param  {String}		dir 版本库所在的文件夹
- * @param  {String}		tag tag名字
- * @return {Promise}	Promise内的值为数组，0为打tag命令的返回信息，1为推送tag的命令的返回信息
- */
-function addTag(dir, tag) {
-	dir = path.resolve(dir);
-
-	return getRepType(dir)
-
-	.then(repType => {
-		var cmds;
-		if (repType === "git") {
-			// git环境下要运行的命令
-			cmds = [
-				// 添加tag
-				`git tag --force --annotate ${ tag } --message "by FELS"`,
-				// 推送tag到服务器端
-				"git push --tags --force"
-			];
-		} else if (repType === "hg") {
-			// hg环境下要运行的命令
-			cmds = [
-				// 添加tag
-				`hg tag --force --message "by FELS" ${ tag }`,
-				// 推送tag到服务器端
-				"hg push --force"
-			];
-		}
-
-		return cmds.map(cmd => {
-			// 运行所有的命令
-			return require("child_process").execSync(cmd, {
-				cwd: dir
-			}).toString();
-		});
-
 	});
 }
 
@@ -1159,7 +943,7 @@ gulp.task("publish", (cb) => {
 	var getFiles;
 	var author;
 	if (program.ci) {
-		getAuthor(program.dir)
+		require("./lib/getrepauthor.js")(program.dir)
 
 		.then(authorInfo => {
 			author = authorInfo;
@@ -1260,7 +1044,7 @@ gulp.task("publish", (cb) => {
 						saveStatus(files, program.dir, program.diff);
 						console.log("正在同步tag：", program.diff);
 
-						addTag(program.dir, program.diff)
+						require("./lib/addreptag")(program.dir, program.diff)
 
 						.then(() => {
 							console.log("tag同步成功：", program.diff);
@@ -1357,149 +1141,6 @@ gulp.task("fix", () => {
 	.pipe(dest && !/\.\w+$/.test(dest) ? gulp.dest(dest) : getFile(contents => fs.outputFile(dest || src, contents)));
 });
 
-gulp.task("hook", () => {
-	var program = new(require("commander").Command)("gulp precommit");
+gulp.task("hook", require("./lib/addhooks")(__filename, __dirname));
 
-	program
-		.option("--src [path]", "项目根目录路径", String, ".")
-
-	.parse(process.argv);
-
-	var cmd = "gulp --gulpfile " + path.relative(program.src, __filename).replace(/\\/g, "/") + " precommit --src " + program.src;
-
-	return getRepType(program.src)
-
-	.then(type => {
-		if (type === "git") {
-			return fs.outputFileAsync(path.join(program.src, ".git/hooks/pre-commit"), "#!/bin/sh\n" + cmd);
-		} else if (type === "hg") {
-			var ini = require("ini");
-
-			// 读取hg配置文件
-			var filePath = path.join(program.src, ".hg/hgrc");
-			return fs.readFileAsync(filePath)
-
-			.then(contents => ini.parse(contents.toString()))
-
-			.then(config => {
-
-				// 配置文件中已有Jenkins触发命令
-				if (config.hooks && config.hooks["precommit.fels"]) {
-					return cmd;
-				}
-
-				config.hooks = Object.assign(config.hooks || {}, {
-					"precommit.fels": cmd,
-				});
-
-				// 将对象转换为ini文件格式的字符串
-				config = ini.stringify(config, {
-					whitespace: true
-				});
-
-				// 写入hg配置文件
-				return fs.writeFileAsync(filePath, config);
-			});
-
-		}
-	});
-});
-
-gulp.task("precommit", () => {
-	var program = new(require("commander").Command)("gulp precommit");
-
-	program
-		.option("--src [path]", "项目根目录路径", String, ".")
-
-	.parse(process.argv);
-
-	return diff(program.src)
-
-	.then(files => {
-
-		files = files.filter(function(path) {
-			// 将压缩文件排除
-			return !(/[\.\-]min\.\w+$/.test(path));
-		});
-
-		var jsFiles = files.filter(function(path) {
-			// 将js文件单独列出
-			return /\.js$/.test(path);
-		});
-
-		var cssFiles = files.filter(function(path) {
-			// 将css文件单独列出
-			return /\.css$/.test(path);
-		});
-
-		var result = [];
-
-		var gulpTxtChenged = require("./lib/gulp-text-chenged");
-		var txtChenged = gulpTxtChenged({
-			cache: {},
-		});
-
-		function src(files) {
-			return gulp.src(files, {
-				allowEmpty: true,
-				base: program.src,
-				cwd: program.src,
-			})
-
-			.pipe(txtChenged)
-
-			.pipe(require("gulp-stripbom")({
-				showLog: false,
-			}))
-
-			.pipe(require("./lib/gulp-eol")());
-		}
-
-		if (jsFiles.length) {
-			// jshint检查js文件
-			var jshint = require("gulp-jshint");
-			result.push(
-				src(jsFiles)
-
-				.pipe(jsBeautify())
-
-				.pipe(jshint())
-
-				.pipe(require("./lib/gulp-reporter")())
-
-				.pipe(jshint.reporter("fail"))
-			);
-		}
-
-		if (cssFiles.length) {
-			// css 代码审查
-			var csscomb = require("gulp-csscomb");
-
-			result.push(
-				src(cssFiles)
-
-				.pipe(csscomb())
-
-			);
-		}
-
-		if (result.length) {
-			// 代码审查异步结果处理
-			result = result.map(stream => {
-				return new Promise((resolve, reject) => {
-					stream = stream
-						.pipe(txtChenged)
-						.pipe(gulp.dest(program.src));
-
-					stream.on("end", resolve);
-					stream.on("error", reject);
-					process.nextTick(resolve);
-				});
-			});
-
-			return Promise.all(result).then(() => {
-				return gulpTxtChenged.saveGlobalCache();
-			});
-		}
-	});
-});
+gulp.task("precommit", require("./lib/precommit"));
