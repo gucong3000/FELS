@@ -3,11 +3,7 @@
 
 ## 文件格式 ##
 
-文件编码 UTF-8
-
-换行符 LF (Unix)
-
-> 请在浏览器或IDE中安装与[CSScomb](http://csscomb.com/)兼容的代码格式化工具。比如[brackets-csscomb](https://github.com/i-akhmadullin/brackets-csscomb)、[CSScomb for Sublime Text](https://github.com/csscomb/sublime-csscomb)
+IDE或编辑器中，需要支持 [.editorconfig](../.editorconfig) 配置文件，如 Sublime Text 需要安装插件 [EditorConfig](https://packagecontrol.io/packages/EditorConfig)
 
 ## 禁用的css语句 ##
 

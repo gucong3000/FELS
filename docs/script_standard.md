@@ -3,12 +3,7 @@
 
 ## 文件格式 ##
 
-文件编码 UTF-8
-
-换行符 LF (Unix)
-
-> 请在浏览器或IDE中安装与[JS Beautifier](http://jsbeautifier.org/)兼容的代码格式化工具。比如Sublime Text的[JsFormat](https://packagecontrol.io/packages/JsFormat)、[HTMLPrettify](https://github.com/victorporof/Sublime-HTMLPrettify)
-
+IDE或编辑器中，需要支持 [.editorconfig](../.editorconfig) 配置文件，如 Sublime Text 需要安装插件 [EditorConfig](https://packagecontrol.io/packages/EditorConfig)
 
 ## 禁用、慎用的js语句 ##
 
@@ -71,5 +66,4 @@
 
 ## 扩展工具
 
--   [JSHint - 代码风格审查](jshint_config.md)
--   [JS Beautifier - 代码格式化](jsbeautify_config.md)
+-   [ESLint - 代码风格审查](eslint_config.md)

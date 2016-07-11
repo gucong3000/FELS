@@ -39,7 +39,7 @@ gulp publish <options>
 gulp fix --src path/to/your/js
 ```
 
-按照[样式规范](./docs/style_standard.md)或者[JS规范](./docs/script_standard.md)自动修复源文件
+按照[样式规范](./docs/style_standard.md)自动修复源文件
 
 ## [安装代码库钩子](./docs/gulp_hook.md) (dev)
 
