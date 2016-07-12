@@ -1,8 +1,17 @@
+/* eslint-env node */
+"use strict";
 module.exports = {
 	"root": true,
+	"parserOptions": {
+		"ecmaVersion": 6,
+		"ecmaFeatures": {
+			"jsx": true
+		}
+	},
 	"env": {
 		"node": true,
-		"es6": true,
+		"amd": true,
+		"es6": true
 	},
 	"rules": {
 		"no-negated-in-lhs": "error",
@@ -24,7 +33,7 @@ module.exports = {
 		],
 		"array-bracket-spacing": [
 			"error",
-			"always"
+			"never"
 		],
 		"eqeqeq": [
 			"error",
@@ -65,13 +74,6 @@ module.exports = {
 				"allowPattern": "^[a-z]+(_[a-z]+)+$"
 			}
 		],
-		"max-len": [
-			"error",
-			{
-				"code": 100,
-				"ignoreComments": true
-			}
-		],
 		"no-mixed-spaces-and-tabs": "error",
 		"no-trailing-spaces": "error",
 		"no-multi-str": "error",
@@ -96,7 +98,7 @@ module.exports = {
 		],
 		"space-in-parens": [
 			"error",
-			"always"
+			"never"
 		],
 		"keyword-spacing": [
 			2

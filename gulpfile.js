@@ -5,6 +5,7 @@ var fs = require("fs-extra-async");
 var gutil = require("gulp-util");
 var through = require("through2");
 var uglifyOpt = {
+
 	//保留IE的jscript条件注释
 	preserveComments: (o, info) => {
 		return /@(cc_on|if|else|end|_jscript(_\w+)?)\s/i.test(info.value);
@@ -13,16 +14,20 @@ var uglifyOpt = {
 
 // 是否在浏览器端汇报js与css错误
 var reporter = ("REPORTER" in process.env) ? Boolean(process.env.REPORTER) : true;
+
 // 项目根目录设置
 var baseDir = process.cwd();
 
 // gulp 插件引用开始
 // gulp缓存插件，只传递变化了的文件
 var cache = require("gulp-cached");
+
 // gulp缓存读取插件，读取缓存中的内容
 var remember = require("gulp-remember");
+
 // gulp异常处理插件
 var plumber = require("gulp-plumber");
+
 // gulp 插件引用结束
 
 var isDev;
@@ -36,6 +41,7 @@ var isDev;
 function getFile(callback, debugname) {
 	return through.obj((file, encoding, cb) => {
 		function sendError(err) {
+
 			// 将异常信息转化为gulp格式
 			cb(new gutil.PluginError(debugname, file.path + ": " + (err.message || err.msg || "unspecified error"), {
 				fileName: file.path,
@@ -80,7 +86,8 @@ function getFile(callback, debugname) {
 }
 
 // Stylelint reporter config
-var warnIcon = encodeURIComponent(`<svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" width="48px" height="48px" viewBox="0 0 512 512" enable-background="new 0 0 512 512" xml:space="preserve"><path fill="#A82734" id="warning-4-icon" d="M228.55,134.812h54.9v166.5h-54.9V134.812z M256,385.188c-16.362,0-29.626-13.264-29.626-29.625c0-16.362,13.264-29.627,29.626-29.627c16.361,0,29.625,13.265,29.625,29.627C285.625,371.924,272.361,385.188,256,385.188z M256,90c91.742,0,166,74.245,166,166c0,91.741-74.245,166-166,166c-91.742,0-166-74.245-166-166C90,164.259,164.245,90,256,90z M256,50C142.229,50,50,142.229,50,256s92.229,206,206,206s206-92.229,206-206S369.771,50,256,50z"/></svg>`);
+var warnIcon = encodeURIComponent(`<svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" width="48px" height="48px" viewBox="0 0 512 512" enable-background="new 0 0 512 512" xml:space="preserve"><path fill="#A82734" id="warning-4-icon" d="M228.55,134.812h54.9v166.5h-54.9V134.812z M256,385.188c-16.362,0-29.626-13.264-29.626-29.625c0-16.362,13.264-29.627,29.626-29.627c16.361,0,29.625,13.265,29.625,29.627C285.625,371.924,272.361,385.188,256,385.188z M256,90c91.742,0,166,74.245,166,166c0,91.741-74.245,166-166,166c-91.742,0-166-74.245-166-166C90,164.259,164.245,90,256,90z M256,50C142.229,50,50,142.229,50,256s92.229,206,206,206s206-92.229,206-206S369.771,50,256,50z"/>
+</svg>`);
 var stylelintReporterConfig = {
 	styles: {
 		"display": "block",
@@ -88,6 +95,7 @@ var stylelintReporterConfig = {
 		"margin": "1em",
 		"font-size": ".9em",
 		"padding": "1.5em 1em 1.5em 4.5em",
+
 		/* padding + background image padding */
 
 		/* background */
@@ -175,92 +183,22 @@ function isMinFile(contents) {
 	return !contents || /\bsourceMappingURL=[^\n]+\.map\b/.test(contents) || lineCount(contents) < 3;
 }
 
-/**
- * 代码错误汇报函数，在浏览器中运行，用于将jshinit收集到的报出的错误信息在浏览器控制台中弹出
- * 注意！！此函数将被toString()后发送到浏览器，并非在node下运行！！
- * @param  {Array} errors 二维数组，里面的维度，[0]是错误消息，[1]是行号，[2]是列号
- * @param  {String} path    文件的路径，可以是js模块路径
- */
-function jsBrowserReporter(errors, path) {
-	var uri;
-	try {
-		throw new Error("_");
-	} catch (e) {
-		try {
-			e.stack.replace(/(?:\bat\b|@).*?(\b\w+\:\/{2,}.*?)(?:\:\d+){2,}/, function(m, url) {
-				uri = url;
-			});
-		} catch (ex) {
-
-		}
-	}
-
-	// 获取js文件当前路径
-	if (uri) {
-		// 延迟运行，以免干扰js正常运行流程
-		setTimeout(function() {
-			// 将文件路径与模块路径拼接为完整的url
-			uri = uri.replace(/^((?:\w+\:)?\/{2,}[^\/]+)?.*$/, "$1" + path);
-			var unshowMsg = "";
-			errors.forEach(window.Error && "fileName" in Error.prototype ? function(err) {
-				// 方式一：new Error，对error的属性赋值，然后throw
-				var errorObj;
-				try {
-					errorObj = new SyntaxError(err[0]);
-				} catch (ex) {
-					errorObj = new Error(err[0]);
-				}
-				errorObj.columnNumber = err[2];
-				errorObj.fileName = uri;
-				errorObj.lineNumber = err[1];
-				errorObj.message = err[0];
-				setTimeout(function() {
-					throw errorObj;
-				}, 0);
-
-			} : function(err) {
-				// 方式二：console.warn方式汇报错误
-				err = ("SyntaxError: [0]\n\tat (" + uri + ":[1]:[2])").replace(/\[\s*(\d+)\s*\]/g, function(s, key) {
-					return err[+key] || s;
-				});
-
-				try {
-					// 如果你追踪错误提示来找到这一行，说明你来错误了地方，请按控制台中提示的位置去寻找代码。
-					console.error(err);
-				} catch (ex) {
-					try {
-						// 如果你追踪错误提示来找到这一行，说明你来错误了地方，请按控制台中提示的位置去寻找代码。
-						console.log(err);
-					} catch (ex) {
-						// 不支持console的浏览器中，记录下消息，稍后alert
-						unshowMsg += err + "\n";
-					}
-				}
-			});
-			// 不支持console.error的浏览器，用alert弹出错误
-			if (unshowMsg) {
-				/* global alert */
-				alert(unshowMsg);
-			}
-		}, 200);
-	}
-}
-
 function jsPipe(stream) {
 	if (isDev) {
-		// js代码美化
-		stream = jsBeautify(stream, true);
-		// js 代码风格检查
-		var jshint = require("gulp-jshint");
+		const eslint = require("gulp-eslint");
 
-		require("./lib/jshint-msg");
-		stream = stream.pipe(jshint());
+		// js代码美化
+		stream = stream.pipe(eslint({
+			fix: true
+		}));
+
 	} else {
 		stream = stream.pipe(require("gulp-sourcemaps").init())
 
 		// js代码压缩
 		.pipe(require("gulp-uglify")(uglifyOpt));
 	}
+
 	// 兼容ES6
 	// stream = stream.pipe(require("gulp-babel")())
 
@@ -277,17 +215,13 @@ contents
 	}, "AMD、CDM模块封装"));
 
 	if (isDev && reporter) {
+
 		// jshint错误汇报
-		stream = stream.pipe(getFile((js, file) => {
-			if (file.jshint && !file.jshint.success && !file.jshint.ignored && !/[\\/]jquery(?:-\d.*?)?(?:[-\.]min)?.js$/.test(file.path)) {
-				var uri = JSON.stringify("/" + file.relative.replace(/\\/g, "/"));
-				var errors = JSON.stringify(file.jshint.results.map(result => [result.error.reason, result.error.line, result.error.character]));
-				var reporter = jsBrowserReporter.toString().replace(/^(function)\s*\w+/, "$1");
-				return `${ js }
-(${ reporter })(${ errors }, ${ uri })
-`;
-			}
-		}, "jshint错误汇报"));
+		const reporter = require("./lib/gulp-reporter");
+
+		stream = stream.pipe(reporter({
+			browser: true
+		}));
 	}
 	return stream;
 }
@@ -319,7 +253,7 @@ function sortObj(value) {
 	} else if (typeof value === "object") {
 		var result = {};
 		Object.keys(value).sort().forEach(key => {
-			result[key] = sortObj(value[key]);
+			result[ key ] = sortObj(value[ key ]);
 		});
 		return result;
 	} else {
@@ -330,12 +264,13 @@ function sortObj(value) {
 function notify() {
 	function show(filePath) {
 		notifyBasy = true;
-		var opts = cacheNotification[filePath];
+		var opts = cacheNotification[ filePath ];
 		opts.message = "发现未规范化的代码，点击修复此问题。\n" + filePath;
 		opts.sound = true;
 		opts.time = 5000;
 		opts.wait = true;
 		notifier.notify(opts, function(err, response) {
+
 			// Response is response from notification
 			if (!err && response === "activate") {
 				fs.writeFile(filePath, opts.newCode, function(err) {
@@ -343,7 +278,7 @@ function notify() {
 						gutil.log("文件被自动修复：\n" + filePath);
 					}
 				});
-				delete cacheNotification[filePath];
+				delete cacheNotification[ filePath ];
 				notifyBasy = false;
 				notify();
 			}
@@ -372,8 +307,8 @@ function notify() {
  */
 function codeBeautify(stream, opts) {
 	var plugin = getFile((code, file) => {
-		var rcLoader = rcCache[opts.rcName] || (rcCache[opts.rcName] = new RcLoader(opts.rcName, {
-			defaultFile: path.join(__dirname, opts.rcName),
+		var rcLoader = rcCache[ opts.rcName ] || (rcCache[ opts.rcName ] = new RcLoader(opts.rcName, {
+			defaultFile: path.join(__dirname, opts.rcName)
 		}));
 
 		var filePath = file.path;
@@ -386,26 +321,32 @@ function codeBeautify(stream, opts) {
 					rc = {};
 				}
 				opts.beautify(code, rc, file).then(newCode => {
+
 					// 是否生成了新代码
 					if (newCode) {
+
 						// 新代码与老代码是否相同
 						if (newCode.trim() === code.trim()) {
-							delete cacheNotification[filePath];
+							delete cacheNotification[ filePath ];
 						} else {
+
 							// 为新代码文件结尾添加一个空行
 							newCode = newCode.replace(/\n*$/, "\n");
 							if (resolve) {
+
 								// Promise方式返回新代码
 								resolve(newCode);
 							} else {
+
 								// 将新代码交给气球提示流程
 								opts.newCode = newCode;
-								cacheNotification[filePath] = opts;
+								cacheNotification[ filePath ] = opts;
 								notify();
 							}
 							return;
 						}
 					}
+
 					// Promise方式返回新代码
 					if (resolve) {
 						resolve();
@@ -443,7 +384,7 @@ function cssBeautify(stream, lazy) {
 		beautify: function(css, config, file) {
 			var postcss = require("postcss");
 			var processors = [
-				require("postcss-unprefix"),
+				require("postcss-unprefix")
 			];
 			return postcss(processors).process(css).then(result => {
 				var comb = new require("csscomb")(config || "csscomb");
@@ -456,61 +397,39 @@ function cssBeautify(stream, lazy) {
 	});
 }
 
-/**
- * js代码美化
- * @param  {Stream} stream 文件数据流
- * @param  {Booleab} lazy  设置为true时，美化后的代码等待用户点击气泡提示后写入文件，否则，将美化后的代码写入文件数据流
- * @return {Stream}        文件数据流
- */
-function jsBeautify(stream, lazy) {
-	return codeBeautify(stream, {
-		title: "js beautify",
-		icon: "https://avatars1.githubusercontent.com/u/38091",
-		"rcName": ".jsbeautifyrc",
-		lazy: lazy,
-		beautify: function(js, config, file) {
-			return new Promise((resolve, reject) => {
-				var fileIgnored = require("gulp-jshint/src/fileIgnored");
-				fileIgnored(file, (err, ignored) => {
-					if (err) {
-						return reject(err);
-					}
-					if (ignored) {
-						return resolve();
-					}
-					resolve(require("js-beautify").js_beautify(js, config));
-				});
-			});
-		}
-	});
-}
-
 // css工作流
 function cssPipe(stream) {
 	var processors = [
 		isDev ? require("stylelint")() : null,
+
 		// css未来标准提前使用
 		require("postcss-cssnext")({
 			features: {
 				"autoprefixer": {
 					browsers: ["last 3 version", "ie > 8", "Android >= 3", "Safari >= 5.1", "iOS >= 5"],
+
 					// should Autoprefixer use Visual Cascade, if CSS is uncompressed.
 					cascade: false,
+
 					// If you have no legacy code, this option will make Autoprefixer about 10% faster.
-					remove: false,
+					remove: false
 				}
 			}
 		}),
+
 		// scss风格的预处理器
 		// require("precss")(),
 		// IE8期以下兼容rem
 		require("pixrem"),
+
 		// IE9兼容vmin
 		require("postcss-vmin"),
+
 		// IE8以下兼容合集
 		// require("cssgrace"),
 		// background: linear-gradient(to bottom, #1e5799, #7db9e8);输出为IE滤镜
 		require("postcss-filter-gradient"),
+
 		// 静态资源版本控制
 		require("postcss-url")({
 			useHash: true,
@@ -522,13 +441,15 @@ function cssPipe(stream) {
 				return input.source + " produced " + input.messages.length + " messages";
 			} : undefined,
 			clearMessages: true
-		}) : require("cssnano")(),
+		}) : require("cssnano")()
 	];
 
 	if (isDev) {
+
 		// CSS代码美化
 		stream = cssBeautify(stream, true);
 	} else {
+
 		// css sourcemaps初始化
 		stream = stream.pipe(require("gulp-sourcemaps").init());
 	}
@@ -570,11 +491,11 @@ module.exports = (staticRoot, env) => {
 					cwd: file.cwd,
 					base: file.base,
 					path: sourceMapPath,
-					contents: new Buffer(sourceMap),
+					contents: new Buffer(sourceMap)
 				});
 
 			sourceMapFile.etag = require("etag")(file.contents);
-			sendFileCache[sourceMapPath] = sourceMapFile;
+			sendFileCache[ sourceMapPath ] = sourceMapFile;
 
 			return /\.js$/.test(file.path) ? "\n//# sourceMappingURL=" + url : "\n/*# sourceMappingURL=" + url + " */";
 		}
@@ -583,7 +504,7 @@ module.exports = (staticRoot, env) => {
 
 
 	function sendFile(relativePath) {
-		function gulp_src(filename, buffer) {
+		function gulpSrc(filename, buffer) {
 			var src = require("stream").Readable({
 				objectMode: true
 			});
@@ -602,11 +523,13 @@ module.exports = (staticRoot, env) => {
 		var pipeFn;
 		var filePath = path.join(baseDir, relativePath);
 
-		if (sendFileCache[filePath]) {
+		if (sendFileCache[ filePath ]) {
+
 			// 如果外部请求的文件正好缓存中有，则发送出去，然后清除缓存中的此文件
 			// sourceMap之类情况就是这样，上次请求js时生成的map文件放在缓存中，浏览器下次来取
-			return Promise.resolve(sendFileCache[filePath]);
+			return Promise.resolve(sendFileCache[ filePath ]);
 		} else if (/[\.\-]min\.\w+$/.test(filePath)) {
+
 			// 已压缩文件，不作处理
 			return;
 		} else if (/\.js$/i.test(filePath)) {
@@ -635,12 +558,12 @@ module.exports = (staticRoot, env) => {
 			}
 
 			return new Promise((resolve, reject) => {
-				var stream = gulp_src(filePath, data)
+				var stream = gulpSrc(filePath, data)
 
 				// 错误汇报机制
 				.pipe(plumber(ex => {
 					reject(ex);
-					delete cache.caches[filePath][filePath];
+					delete cache.caches[ filePath ][ filePath ];
 					remember.forget(filePath, filePath);
 				}))
 
@@ -654,6 +577,7 @@ module.exports = (staticRoot, env) => {
 
 					// 处理文件的sourceMap
 					stream = stream.pipe(getFile((content, file) => {
+
 						// 在文件末尾添加一行sourceMap注释
 						var sourceMapComment = getSourceMap(file);
 						if (sourceMapComment) {
@@ -668,12 +592,14 @@ module.exports = (staticRoot, env) => {
 				// 取出文件内容，返回给外部
 				.pipe(through.obj((file, encoding, cb) => {
 					file.etag = require("etag")(file.contents);
+
 					// 如果获取到的文件正好是外部要获取的文件，则发送给外部
 					if (file.path === filePath) {
 						resolve(file);
 					} else {
+
 						// 如果获取到的文件是sourceMap之类的文件，先放进缓存，等外部下次请求时发送
-						sendFileCache[file.path] = file;
+						sendFileCache[ file.path ] = file;
 					}
 					cb();
 				}));
@@ -714,6 +640,7 @@ function byteStringify(byte) {
 
 function fileUploader(configs) {
 	var baseDir = configs.base ? require("url").resolve("/", configs.base.replace(/\/?$/, "/")) : "/";
+
 	/**
 	 * API 方式文件上传
 	 * @param  {Vinyl} file https://github.com/gulpjs/vinyl
@@ -723,20 +650,20 @@ function fileUploader(configs) {
 		var filePath = fileVinyl.relative.replace(/\\/g, "/").match(/^(?:(.*)\/)?([^\/]+)$/);
 
 		var configfile = {
-			"path": baseDir + (filePath[1] || ""),
+			"path": baseDir + (filePath[ 1 ] || ""),
 			"user": configs.user,
 			"password": configs.password,
-			"fileName": filePath[2],
+			"fileName": filePath[ 2 ]
 		};
 		var formData = {
 			configfile: JSON.stringify(configfile),
 			imagefile: {
 				value: fileVinyl.contents || require("fs").createReadStream(fileVinyl.path),
 				options: {
-					filename: filePath[2],
-					contentType: require("mime-types").lookup(filePath[2]),
-				},
-			},
+					filename: filePath[ 2 ],
+					contentType: require("mime-types").lookup(filePath[ 2 ])
+				}
+			}
 		};
 		return new Promise((resolve, reject) => {
 			require("request").post({
@@ -753,7 +680,7 @@ function fileUploader(configs) {
 						body = JSON.parse(body);
 					} catch (ex) {
 						reject({
-							message: body,
+							message: body
 						});
 						return;
 					}
@@ -763,7 +690,7 @@ function fileUploader(configs) {
 					} else {
 						reject({
 							code: body.code,
-							message: body.info,
+							message: body.info
 						});
 					}
 				}
@@ -783,10 +710,13 @@ function fsWalker(rootDir) {
 
 	function walker(rootDir) {
 		return new Promise((resolve, reject) => {
+
 			// 遍历当前目录下的子对象
 			fs.readdirAsync(rootDir).then(subNames => {
+
 				// 储存当前目录下的子目录的遍历Promise对象
 				var subDirs = [];
+
 				// 储存当前目录下的文件
 				var subFiles = [];
 
@@ -795,16 +725,19 @@ function fsWalker(rootDir) {
 					return !/^(?:node_modules|\..*)$/i.test(subName);
 				}).map(subName => {
 					var subPath = path.join(rootDir, subName);
+
 					// 异步获取子对象状态
 					return fs.statAsync(subPath).then(stat => {
 						if (stat.isDirectory()) {
+
 							// 子对象是个目录，则递归查询
 							subDirs.push(walker(subPath));
 						} else {
+
 							// 子对象是个文件
 							subFiles.push({
 								path: subPath,
-								stat: stat,
+								stat: stat
 							});
 						}
 						return stat;
@@ -813,8 +746,10 @@ function fsWalker(rootDir) {
 
 				// 等待所有fs.statAsync操作完成
 				Promise.all(subNames).then(() => {
+
 					// 获取所有子目录的遍历结果
 					Promise.all(subDirs).then(subDirsChilds => {
+
 						// 将子目录的遍历结果，与当前目录的遍历结果，合为一个数组
 						resolve(subFiles.concat.apply(subFiles, subDirsChilds));
 					}).catch(reject);
@@ -843,16 +778,16 @@ function saveStatus(files, dir, tag) {
 		filecache = {};
 	}
 
-	var cache = filecache[tag];
+	var cache = filecache[ tag ];
 
 	if (!cache) {
 		cache = {};
-		filecache[tag] = cache;
+		filecache[ tag ] = cache;
 	}
 
 	files.forEach(file => {
 		if (file.status === "?") {
-			cache[file.relative] = file.stat.mtime.valueOf();
+			cache[ file.relative ] = file.stat.mtime.valueOf();
 		}
 	});
 
@@ -866,6 +801,7 @@ function saveStatus(files, dir, tag) {
  * @return Promise     		Promise对象的返回值为 {Vinyl[]} 数组 https://github.com/gulpjs/vinyl
  */
 function path2vinyl(paths, baseDir) {
+
 	// 将文件相对路径数组转换成Vinyl数组
 	paths = paths.map(subPath => {
 		var filePath = path.join(baseDir, subPath);
@@ -876,7 +812,7 @@ function path2vinyl(paths, baseDir) {
 				base: baseDir,
 				path: filePath,
 				relative: subPath,
-				stat: stat,
+				stat: stat
 			};
 		}).catch(() => {
 			return null;
@@ -896,7 +832,7 @@ function path2vinyl(paths, baseDir) {
 function getNewFiles(dir, tag) {
 	dir = path.resolve(dir);
 	return Promise.all([require("./lib/getrepdiff")(dir, tag), require("./lib/getrepunknown")(dir, tag)]).then(filesArray => {
-		return path2vinyl(filesArray[0].concat(filesArray[1]), dir);
+		return path2vinyl(filesArray[ 0 ].concat(filesArray[ 1 ]), dir);
 	});
 }
 
@@ -918,6 +854,7 @@ gulp.task("publish", (cb) => {
 	.parse(process.argv);
 
 	if (!program.password || !program.url) {
+
 		// 显示帮助信息
 		program.help();
 		return;
@@ -927,7 +864,7 @@ gulp.task("publish", (cb) => {
 		"url": program.url,
 		"base": program.base || "/",
 		"user": program.username,
-		"password": program.password,
+		"password": program.password
 	});
 
 	function getFsWalker() {
@@ -964,6 +901,7 @@ gulp.task("publish", (cb) => {
 
 	getFiles.then(files => {
 		files = files.filter(file => {
+
 			// 排除`gulpfile.js`、 `gruntfile.js`、 `package\.json`、`*.log`,、`*.less`,、`*.sass`,、`*.coffee`,、`*.ts`,、`*.es*`,
 			return !/(?:^|\/)(?:package\.json|gruntfile\.js|[^/]+\.(?:log|less|sass|scss|coffee|ts|es\d)|\.[^./]+)$/i.test(file.relative);
 		});
@@ -973,30 +911,34 @@ gulp.task("publish", (cb) => {
 			total += getFileSize(file);
 		});
 		console.log("需要上传" + files.length + "个文件，共" + byteStringify(total) + "。");
+
 		// 进度条
 		var ProgressBar;
 		var bar;
 
 
 		if (!program.ci) {
+
 			// 进度条
 			ProgressBar = require("progress");
 			bar = new ProgressBar("[:bar] :percent :elapseds :etas", {
 				total: total,
-				width: 40,
+				width: 40
 			});
 		}
 		var errors = [];
-		var tick = 0;
 		var percent;
 
 		// 建立任务队列
 		var Queue = require("queue-fun").Queue();
 		var queue = new Queue(program.queue, {
+
 			// 失败时重试次数
 			retryON: program.retry || (program.ci ? 50 : 20),
+
 			// 失败时搁置
 			retryType: false,
+
 			// 上传成功
 			event_succ: function(data) {
 				succCount++;
@@ -1010,6 +952,7 @@ gulp.task("publish", (cb) => {
 					}
 				}
 			},
+
 			// 报错次数超出上限
 			event_err: function(err) {
 				if (err && err.code === 1001) {
@@ -1019,7 +962,6 @@ gulp.task("publish", (cb) => {
 					if (bar) {
 						bar.tick(getFileSize(err.file));
 					} else {
-						tick += getFileSize(err.file);
 						console.error(err.message || err.code || err, err.file ? err.file.relative : "");
 					}
 				}
@@ -1067,7 +1009,7 @@ gulp.task("publish", (cb) => {
 						cb();
 					}
 				}
-			},
+			}
 		});
 
 		queue.allArray(files, uploader);
@@ -1075,7 +1017,7 @@ gulp.task("publish", (cb) => {
 	});
 });
 
-gulp.task("server", () => {
+gulp.task("server", cb => {
 	var program = new(require("commander").Command)("gulp server");
 
 	program
@@ -1088,6 +1030,7 @@ gulp.task("server", () => {
 	.parse(process.argv);
 
 	if (!program.path) {
+
 		// 显示帮助信息
 		program.help();
 		return;
@@ -1099,9 +1042,9 @@ gulp.task("server", () => {
 			REPORTER: program.reporter || "",
 			PORT: program.port || "",
 			DNS: program.dns || "",
-			NODE_ENV: program.env,
+			NODE_ENV: program.env
 		}
-	});
+	}, cb);
 });
 
 gulp.task("fix", () => {
@@ -1115,6 +1058,7 @@ gulp.task("fix", () => {
 	.parse(process.argv);
 
 	if (!program.src) {
+
 		// 显示帮助信息
 		program.help();
 		return;
@@ -1129,10 +1073,6 @@ gulp.task("fix", () => {
 	.pipe(gulpif((file) => {
 		return /\.(?:less|scss|css)$/.test(file.path);
 	}, cssBeautify()))
-
-	.pipe(gulpif((file) => {
-		return /\.(?:js|es\d|ts|coffee)$/.test(file.path);
-	}, jsBeautify()))
 
 	.pipe(gulpif((file) => {
 		return /\.(?:json|sublime-\w+)$/.test(file.path) || /[\\/]\.\w+rc$/.test(file.path);
