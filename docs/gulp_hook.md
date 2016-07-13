@@ -15,4 +15,4 @@ gulp hook --src ../path/to/your/project
 
 ## 功能点
 
-提交前代码审查
+[提交前代码审查](./gulp_precommit.md)

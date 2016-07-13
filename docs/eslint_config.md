@@ -15,11 +15,12 @@
 
 [文件内容局部忽略](http://cn.eslint.org/docs/user-guide/configuring#disabling-rules-with-inline-comments)
 
+[ESLint 规则详解](http://cn.eslint.org/docs/rules/)
+
 ## Sublime Text配置
 
 1.  安装插件 [SublimeLinter](https://sublimelinter.readthedocs.org/)
 1.  安装插件 [SublimeLinter-contrib-eslint](https://packagecontrol.io/packages/SublimeLinter-contrib-eslint)
-1.  使用以下配置代替原来的：
 
 ## 参考配置文件
 
