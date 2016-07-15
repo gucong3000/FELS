@@ -10,10 +10,16 @@ charset = utf-8
 trim_trailing_whitespace = true
 insert_final_newline = true
 
-[{*.cmd,*.bat}]
+[*.{cmd,bat}]
 end_of_line = crlf
 
-[{*.json,.*rc}]
+[.jsbeautifyrc]
+insert_final_newline = false
+
+[.stylelintrc]
+insert_final_newline = false
+
+[package.json]
 insert_final_newline = false
 
 [{package.json,.travis.yml}]
