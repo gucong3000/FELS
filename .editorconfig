@@ -13,7 +13,7 @@ insert_final_newline = true
 [{*.cmd,*.bat}]
 end_of_line = crlf
 
-[package.json]
+[{*.json,.*rc}]
 insert_final_newline = false
 
 [{package.json,.travis.yml}]
