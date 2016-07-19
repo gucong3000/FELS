@@ -3,8 +3,8 @@
 const fs = require("fs-extra-async");
 const path = require("path");
 const rcPath = path.join(__dirname, ".jsbeautifyrc");
-let rcSource
-let jsbeautifyrc;
+let rcSource;
+let rcObject;
 
 // 读取`.jsbeautifyrc`配置
 try {
@@ -13,12 +13,13 @@ try {
 	rcSource = fs.readFileSync(rcPath).toString();
 
 	// 转换JSON格式
-	jsbeautifyrc = JSON.parse(rcSource);
+	rcObject = JSON.parse(rcSource);
 } catch (ex) {
 	if (rcSource) {
 		try {
+
 			// 尝试转换不规范的JSON格式
-			jsbeautifyrc = eval("(" + rcSource + ")");
+			rcObject = eval("(" + rcSource + ")");
 		} catch (ex) {
 
 		}
@@ -28,8 +29,13 @@ try {
 }
 
 // 未读取到`.jsbeautifyrc`，则获取js-beautify默认配置
-jsbeautifyrc = jsbeautifyrc || require("js-beautify/js/config/defaults.json");
-
+rcObject = rcObject || (() => {
+	try {
+		return require("js-beautify/js/config/defaults.json");
+	} catch (ex) {
+		return path.join(process.cwd(), "js-beautify/js/config/defaults.json");
+	}
+})();
 
 // 换行符的“名字”映射为名字对应的字符串
 const eolMap = {
@@ -47,26 +53,30 @@ editorconfig.parse(path.join(__dirname, "*.js"))
 
 	// 根据js文件的`.editorconfig`配置，调整`.jsbeautifyrc`配置
 	if (/^space$/i.test(config.indent_style)) {
+
 		// 配置缩进为空格
-		jsbeautifyrc.indent_size = +config.indent_size || 4;
-		jsbeautifyrc.indent_char = " ";
-		jsbeautifyrc.indent_with_tabs = false;
+		rcObject.indent_size = +config.indent_size || 4;
+		rcObject.indent_char = " ";
+		rcObject.indent_with_tabs = false;
 	} else {
+
 		// 配置缩进为tab
-		jsbeautifyrc.indent_size = +config.indent_size || 1;
-		jsbeautifyrc.indent_char = "\t";
-		jsbeautifyrc.indent_with_tabs = true;
+		rcObject.indent_size = +config.indent_size || 1;
+		rcObject.indent_char = "\t";
+		rcObject.indent_with_tabs = true;
 	}
 
-	jsbeautifyrc.end_with_newline = !!config.insert_final_newline;
+	// 调整文件末尾空行设置
+	rcObject.end_with_newline = !!config.insert_final_newline;
 
 	// 其他针对jsbeautifyrc需要覆盖的默认配置
-	jsbeautifyrc.unescape_strings = true;
-	jsbeautifyrc.max_preserve_newlines = 3;
+	rcObject.unescape_strings = true;
+	rcObject.max_preserve_newlines = 3;
 
 
 	// 检查是否需要更新`.jsbeautifyrc`文件
-	if (!rcSource || JSON.stringify(jsbeautifyrc) !== JSON.stringify(JSON.parse(rcSource))) {
+	if (!rcSource || JSON.stringify(rcObject) !== JSON.stringify(JSON.parse(rcSource))) {
+
 		// 加载针对`.jsbeautifyrc`配置文件的`.editorconfig`配置
 		return editorconfig.parse(rcPath);
 	}
@@ -75,13 +85,14 @@ editorconfig.parse(path.join(__dirname, "*.js"))
 .then(config => {
 
 	if (!config) {
+
 		// 不需要更新`.jsbeautifyrc`文件
 		return;
 	}
 
 	// 将`.jsbeautifyrc`转化为字符串，缩进服从`.editorconfig`配置
 	let newRcSource = JSON.stringify(
-		jsbeautifyrc,
+		rcObject,
 		0,
 		/^space$/i.test(config.indent_style) ? +config.indent_size || 4 : "\t"
 	);
@@ -107,13 +118,14 @@ editorconfig.parse(path.join(__dirname, "*.js"))
 			console.error("Can not write file: \t" + rcPath);
 		} else {
 			console.error("File write success: \t" + rcPath);
+
 			// 改变配置，需要重启进程
 			process.exit(1);
 		}
 	});
 });
 
-
+// http://cn.eslint.org/docs/rules/
 module.exports = {
 	"root": true,
 	"parserOptions": {
@@ -256,6 +268,6 @@ module.exports = {
 				"nonwords": false
 			}
 		],
-		"no-multiple-empty-lines": jsbeautifyrc.max_preserve_newlines - 1
+		"no-multiple-empty-lines": rcObject.max_preserve_newlines - 1
 	}
 };
