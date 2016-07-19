@@ -1,4 +1,4 @@
-[ESLint](http://cn.eslint.org/)
+[ESLint](http://cn.eslint.org/) 配置
 ======
 
 可组装的JavaScript和JSX检查工具
