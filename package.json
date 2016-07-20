@@ -37,7 +37,7 @@
     "morgan": "^1.7.0",
     "phantom": "^2.1.1",
     "pixrem": "^3.0.0",
-    "postcss": "^5.0.19",
+    "postcss": "^5.1.0",
     "postcss-cssnext": "^2.5.2",
     "postcss-filter-gradient": "^0.2.4",
     "postcss-flexboxfixer": "^0.0.5",

@@ -134,7 +134,7 @@ module.exports = {
 		"declaration-colon-space-before": "never",
 		"function-comma-space-after": "always",
 		"function-url-quotes": "always",
-		"indentation": rcObject["block-indent"] = " " ? +rcObject["tab-size"] || 4 : "tab",
+		"indentation": rcObject["block-indent"] === " " ? +rcObject["tab-size"] || 4 : "tab",
 		"max-empty-lines": 2,
 		"media-feature-colon-space-after": "always",
 		"media-feature-colon-space-before": "never",
@@ -145,7 +145,9 @@ module.exports = {
 		"selector-list-comma-newline-after": "always",
 		"selector-list-comma-space-before": "never",
 		"string-quotes": rcObject.quotes || "double",
-		"value-no-vendor-prefix": true,
-		"no-missing-end-of-source-newline": !!rcObject["eof-newline"]
-	}
+
+		// 这项暂时设置为true，等日后在构建流程中加入了autoprefixer之后再打开
+		"value-no-vendor-prefix": null,
+		// "no-missing-end-of-source-newline": !!rcObject["eof-newline"]
+	},
 };
