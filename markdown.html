@@ -826,24 +826,24 @@ img {
 <script src="//cdnjs.cloudflare.com/ajax/libs/codemirror/5.13.2/codemirror.min.js"></script>
 <script src="//cdnjs.cloudflare.com/ajax/libs/codemirror/5.13.2/mode/javascript/javascript.min.js"></script>
 <script>
-CodeMirror.defaults.lineNumbers = true;
-Array.from(document.querySelectorAll("pre>code")).forEach(function(codeNode) {
-	var mode;
-	var preNode = codeNode.parentNode;
-	var height = getComputedStyle(preNode).height;
-	codeNode.classList.forEach(function(className){
-		if(/language-(\w+)/.test(className)){
-			mode = RegExp.$1;
-		}
+(function() {
+	CodeMirror.defaults.lineNumbers = true;
+	Array.from(document.querySelectorAll("pre>code")).forEach(function(codeNode) {
+		var mode;
+		var preNode = codeNode.parentNode;
+		codeNode.classList.forEach(function(className) {
+			if (/language-(\w+)/.test(className)) {
+				mode = RegExp.$1;
+			}
+		});
+		CodeMirror(function(elt) {
+			preNode.parentNode.replaceChild(elt, preNode);
+		}, {
+			mode: mode ? mode : undefined,
+			value: (codeNode.innerText || codeNode.textContent).trim(),
+		});
 	});
-	CodeMirror(function(elt) {
-		preNode.parentNode.replaceChild(elt, preNode);
-	}, {
-		mode: mode ? mode : undefined,
-		value: (codeNode.innerText|| codeNode.textContent).trim(),
-	});
-});
+})();
 </script>
 </body>
 </html>
-<!-- This document was created with MarkdownPad, the Markdown editor for Windows (http://markdownpad.com) -->
