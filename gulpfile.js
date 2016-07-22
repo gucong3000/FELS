@@ -253,7 +253,7 @@ function sortObj(value) {
 	} else if (typeof value === "object") {
 		var result = {};
 		Object.keys(value).sort().forEach(key => {
-			result[ key ] = sortObj(value[ key ]);
+			result[key] = sortObj(value[key]);
 		});
 		return result;
 	} else {
@@ -264,7 +264,7 @@ function sortObj(value) {
 function notify() {
 	function show(filePath) {
 		notifyBasy = true;
-		var opts = cacheNotification[ filePath ];
+		var opts = cacheNotification[filePath];
 		opts.message = "发现未规范化的代码，点击修复此问题。\n" + filePath;
 		opts.sound = true;
 		opts.time = 5000;
@@ -278,7 +278,7 @@ function notify() {
 						gutil.log("文件被自动修复：\n" + filePath);
 					}
 				});
-				delete cacheNotification[ filePath ];
+				delete cacheNotification[filePath];
 				notifyBasy = false;
 				notify();
 			}
@@ -307,7 +307,7 @@ function notify() {
  */
 function codeBeautify(stream, opts) {
 	var plugin = getFile((code, file) => {
-		var rcLoader = rcCache[ opts.rcName ] || (rcCache[ opts.rcName ] = new RcLoader(opts.rcName, {
+		var rcLoader = rcCache[opts.rcName] || (rcCache[opts.rcName] = new RcLoader(opts.rcName, {
 			defaultFile: path.join(__dirname, opts.rcName)
 		}));
 
@@ -327,7 +327,7 @@ function codeBeautify(stream, opts) {
 
 						// 新代码与老代码是否相同
 						if (newCode.trim() === code.trim()) {
-							delete cacheNotification[ filePath ];
+							delete cacheNotification[filePath];
 						} else {
 
 							// 为新代码文件结尾添加一个空行
@@ -340,7 +340,7 @@ function codeBeautify(stream, opts) {
 
 								// 将新代码交给气球提示流程
 								opts.newCode = newCode;
-								cacheNotification[ filePath ] = opts;
+								cacheNotification[filePath] = opts;
 								notify();
 							}
 							return;
@@ -495,7 +495,7 @@ module.exports = (staticRoot, env) => {
 				});
 
 			sourceMapFile.etag = require("etag")(file.contents);
-			sendFileCache[ sourceMapPath ] = sourceMapFile;
+			sendFileCache[sourceMapPath] = sourceMapFile;
 
 			return /\.js$/.test(file.path) ? "\n//# sourceMappingURL=" + url : "\n/*# sourceMappingURL=" + url + " */";
 		}
@@ -523,11 +523,11 @@ module.exports = (staticRoot, env) => {
 		var pipeFn;
 		var filePath = path.join(baseDir, relativePath);
 
-		if (sendFileCache[ filePath ]) {
+		if (sendFileCache[filePath]) {
 
 			// 如果外部请求的文件正好缓存中有，则发送出去，然后清除缓存中的此文件
 			// sourceMap之类情况就是这样，上次请求js时生成的map文件放在缓存中，浏览器下次来取
-			return Promise.resolve(sendFileCache[ filePath ]);
+			return Promise.resolve(sendFileCache[filePath]);
 		} else if (/[\.\-]min\.\w+$/.test(filePath)) {
 
 			// 已压缩文件，不作处理
@@ -563,7 +563,7 @@ module.exports = (staticRoot, env) => {
 				// 错误汇报机制
 				.pipe(plumber(ex => {
 					reject(ex);
-					delete cache.caches[ filePath ][ filePath ];
+					delete cache.caches[filePath][filePath];
 					remember.forget(filePath, filePath);
 				}))
 
@@ -599,7 +599,7 @@ module.exports = (staticRoot, env) => {
 					} else {
 
 						// 如果获取到的文件是sourceMap之类的文件，先放进缓存，等外部下次请求时发送
-						sendFileCache[ file.path ] = file;
+						sendFileCache[file.path] = file;
 					}
 					cb();
 				}));
@@ -650,18 +650,18 @@ function fileUploader(configs) {
 		var filePath = fileVinyl.relative.replace(/\\/g, "/").match(/^(?:(.*)\/)?([^\/]+)$/);
 
 		var configfile = {
-			"path": baseDir + (filePath[ 1 ] || ""),
+			"path": baseDir + (filePath[1] || ""),
 			"user": configs.user,
 			"password": configs.password,
-			"fileName": filePath[ 2 ]
+			"fileName": filePath[2]
 		};
 		var formData = {
 			configfile: JSON.stringify(configfile),
 			imagefile: {
 				value: fileVinyl.contents || require("fs").createReadStream(fileVinyl.path),
 				options: {
-					filename: filePath[ 2 ],
-					contentType: require("mime-types").lookup(filePath[ 2 ])
+					filename: filePath[2],
+					contentType: require("mime-types").lookup(filePath[2])
 				}
 			}
 		};
@@ -778,16 +778,16 @@ function saveStatus(files, dir, tag) {
 		filecache = {};
 	}
 
-	var cache = filecache[ tag ];
+	var cache = filecache[tag];
 
 	if (!cache) {
 		cache = {};
-		filecache[ tag ] = cache;
+		filecache[tag] = cache;
 	}
 
 	files.forEach(file => {
 		if (file.status === "?") {
-			cache[ file.relative ] = file.stat.mtime.valueOf();
+			cache[file.relative] = file.stat.mtime.valueOf();
 		}
 	});
 
@@ -832,7 +832,7 @@ function path2vinyl(paths, baseDir) {
 function getNewFiles(dir, tag) {
 	dir = path.resolve(dir);
 	return Promise.all([require("./lib/getrepdiff")(dir, tag), require("./lib/getrepunknown")(dir, tag)]).then(filesArray => {
-		return path2vinyl(filesArray[ 0 ].concat(filesArray[ 1 ]), dir);
+		return path2vinyl(filesArray[0].concat(filesArray[1]), dir);
 	});
 }
 
@@ -1081,6 +1081,8 @@ gulp.task("fix", () => {
 	.pipe(dest && !/\.\w+$/.test(dest) ? gulp.dest(dest) : getFile(contents => fs.outputFile(dest || src, contents)));
 });
 
-gulp.task("hook", require("./lib/addhooks")(__filename, __dirname));
+gulp.task("hook", require("./lib/task-addhooks")(__filename, __dirname));
 
-gulp.task("precommit", require("./lib/precommit"));
+gulp.task("precommit", require("./lib/task-precommit"));
+
+gulp.task("default", require("./lib/task-default"));
