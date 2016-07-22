@@ -20,6 +20,8 @@ cd FELS
 cnpm i
 ```
 
+> 下文所述的各项命令，均指在`FELS`目录下运行
+
 ## [启动web服务](./docs/gulp_server.md) (dev)
 
 ```bash
@@ -44,4 +46,12 @@ gulp fix --src path/to/your/js
 
 ```bash
 gulp hook --src ../path/to/your/project
+```
+
+## 更新版本
+
+```bash
+git pull
+git checkout .
+cnpm i
 ```
