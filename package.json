@@ -64,6 +64,7 @@
     "gulp-eslint": "^3.0.1",
     "gulp-stylelint": "^2.0.2",
     "ini": "^1.3.4",
+    "inquirer": "^1.1.2",
     "js-beautify": "*",
     "livereload": "^0.4.1",
     "markdown-it": "^6.0.0",
@@ -95,7 +96,7 @@
   },
   "scripts": {
     "start": "node server.js",
-    "test": "gulp publish --diff ci_dev --url http://192.168.20.69:8000/upload --username test123 --password 123456 --base /devtest/fe_test --dir ../static_account"
+    "test": "gulp publish --url http://picdev.int.jumei.com/upload --username jumeife --password 123456 --base /static/static_account/ --dir ../static_account"
   },
   "version": "1.0.0"
 }

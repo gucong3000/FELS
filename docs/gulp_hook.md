@@ -6,8 +6,10 @@
 ## 安装
 
 ```bash
-gulp hook --src ../path/to/your/project
+gulp hook
 ```
+
+> 控制台会依次要求你选择文件夹，错误报告格式等信息，成功安装后会给出提示
 
 ## 使用
 
@@ -15,4 +17,6 @@ gulp hook --src ../path/to/your/project
 
 ## 功能点
 
-[提交前代码审查](./gulp_precommit.md)
+* [提交前代码审查](./gulp_precommit.md)
+* 图片文件压缩（还未开发呢）
+
