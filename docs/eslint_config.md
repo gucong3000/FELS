@@ -17,10 +17,34 @@
 
 [ESLint 规则详解](http://cn.eslint.org/docs/rules/)
 
-## Sublime Text配置
+
+## ID中使用
+
+大多数IDE都需要你的系统里全局安装或者项目中安装[ESLint](http://cn.eslint.org/)才能正常使用相关插件
+
+全局安装：
+
+```
+cnpm i -g eslint
+```
+
+项目中安装（项目根目录运行）：
+
+```
+cnpm i eslint
+```
+### Sublime Text配置
 
 1.  安装插件 [SublimeLinter](https://sublimelinter.readthedocs.org/)
 1.  安装插件 [SublimeLinter-contrib-eslint](https://packagecontrol.io/packages/SublimeLinter-contrib-eslint)
+
+### Atom 插件配置
+
+在命令行运行运行如下命令即可安装 [linter-eslint](https://atom.io/packages/linter-eslint) 插件
+
+```bash
+apm install linter-eslint
+```
 
 ## 参考配置文件
 
