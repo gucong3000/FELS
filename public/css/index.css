@@ -22,7 +22,7 @@ body {
 }
 
 aside {
-	box-shadow: 0 3px 12px rgba(0, 0, 0, 0.15);
+	box-shadow: 0 3px 12px rgba(0, 0, 0, .15);
 	border-right: 1px solid #ccc;
 	margin-right: 15px;
 	resize: horizontal;
