@@ -34,12 +34,6 @@ gulp server <options>
 gulp publish <options>
 ```
 
-## [文件自动修复](./docs/gulp_fix.md) (beta)
-
-```bash
-gulp fix --src path/to/your/js
-```
-
 按照[样式规范](./docs/style_standard.md)自动修复源文件
 
 ## [安装代码库钩子](./docs/gulp_hook.md) (dev)

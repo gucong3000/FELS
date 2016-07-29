@@ -236,31 +236,6 @@ notifier.on("timeout", function() {
 	notify();
 });
 
-var jsonBeautify = getFile(contents => {
-	var json;
-	try {
-		json = eval.call(0, "(" + contents + ")");
-	} catch (ex) {
-		return contents;
-	}
-	json = JSON.stringify(sortObj(json), null, "\t");
-	return json;
-});
-
-function sortObj(value) {
-	if (Array.isArray(value)) {
-		return value.sort().map(sortObj);
-	} else if (typeof value === "object") {
-		var result = {};
-		Object.keys(value).sort().forEach(key => {
-			result[key] = sortObj(value[key]);
-		});
-		return result;
-	} else {
-		return value;
-	}
-}
-
 function notify() {
 	function show(filePath) {
 		notifyBasy = true;
@@ -1047,41 +1022,7 @@ gulp.task("server", cb => {
 	}, cb);
 });
 
-gulp.task("fix", () => {
-
-	var program = new(require("commander").Command)("gulp fix");
-
-	program
-		.option("--src [path]", "要修复的文件路径，glob格式", String, "")
-		.option("--dest [path]", "文件保存路径", String, "")
-
-	.parse(process.argv);
-
-	if (!program.src) {
-
-		// 显示帮助信息
-		program.help();
-		return;
-	}
-
-	var src = program.src;
-	var dest = program.dest;
-	var gulpif = require("gulp-if");
-
-	return gulp.src(src)
-
-	.pipe(gulpif((file) => {
-		return /\.(?:less|scss|css)$/.test(file.path);
-	}, cssBeautify()))
-
-	.pipe(gulpif((file) => {
-		return /\.(?:json|sublime-\w+)$/.test(file.path) || /[\\/]\.\w+rc$/.test(file.path);
-	}, jsonBeautify))
-
-	.pipe(dest && !/\.\w+$/.test(dest) ? gulp.dest(dest) : getFile(contents => fs.outputFile(dest || src, contents)));
-});
-
-gulp.task("hook", require("./lib/task-addhooks")(__filename, __dirname));
+gulp.task("hook", () => require("./lib/task-addhooks")());
 
 gulp.task("precommit", require("./lib/task-precommit"));
 
