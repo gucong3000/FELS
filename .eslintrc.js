@@ -136,7 +136,6 @@ module.exports = {
 	},
 	"env": {
 		"node": true,
-		"amd": true,
 		"es6": true
 	},
 	"rules": {

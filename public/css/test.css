@@ -1,5 +1,0 @@
-audio, canvas, progress, video {
-	display: inline-block;
-	*display: inline;
-	*zoom: 1;
-}

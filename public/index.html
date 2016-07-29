@@ -4,37 +4,54 @@
 <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
 <meta name="renderer" content="webkit">
 <meta charset="utf-8">
-<title>Document</title>
-<link rel="stylesheet" type="text/css" href="css/test.css">
-<script type="text/javascript" src="js/common.js"></script>
+<title>FELS</title>
+<link rel="stylesheet" type="text/css" href="css/markdownpad-github.css">
+<link rel="stylesheet" type="text/css" href="css/index.css">
+<script>
+"use strict";
+document.addEventListener("DOMContentLoaded", function() {
+	require("./js/projectmanger");
+}, false);
+</script>
 </head>
 <body>
-<script type="text/javascript" src="js/cssunits.js"></script>
-<script type="text/javascript" src="js/browser.js"></script>
-<script type="text/javascript" src="js/jquery.js"></script>
-<script>
-window.onload = function() {
-	workers = {}
+	<aside>
+		<select multiple>
+		</select>
+	</aside>
+	<section>
+		<h1></h1>
+		<nav>
+			<label for="reporter" class="curr">错误报告</label>
+			<label for="config">项目配置</label>
+		</nav>
+		<input type="radio" checked id="reporter" name="tabs">
+		<div>无错误</div>
+		<input type="radio" id="config" name="tabs">
+		<div>
+			<fieldset id="hook">
+				<legend>代码库钩子</legend>
+				<label>
+					<input type="checkbox" checked id="hook-enable">
+					开启
+				</label>
+				<label>
+					<input type="checkbox" checked id="hook-color">
+					控制台彩色
+				</label>
+				<label>
+					<input type="checkbox" checked id="hook-gui">
+					图形界面风格错误报告
+				</label>
+			</fieldset>
+			<fieldset>
+				<legend>ESLint</legend>
+			</fieldset>
+			<fieldset>
+				<legend>StyleLint</legend>
 
-	function worker(module) {
-		if (workers[module.filename]) {
-			return;
-		}
-		workers[module.filename] = true;
-		var exports = module.exports;
-		if (module.id==="." || module.filename && module.loaded && exports !== undefined) {
-			if (typeof exports === "function") {
-				exports = String(exports).replace(/\{\n(.|\n)+$/, "{ … }");
-			}
-			console.log(module.filename, module.loaded, exports);
-		} else {
-			console.error(module.filename);
-		}
-		module.children.forEach(worker);
-	}
-	worker(require.cache["."]);
-}
-</script>
-
+			</fieldset>
+		</div>
+	</section>
 </body>
 </html>
