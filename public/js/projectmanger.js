@@ -52,7 +52,7 @@ let projectManger = {
 	 */
 	addProject: function(projectPath, force) {
 		projectPath = remote.require("./unifiedpath")(projectPath);
-		if (force || projectManger.projects[projectPath]) {
+		if (force || !projectManger.projects[projectPath]) {
 			seleProjects.appendChild(new Option(projectPath.replace(/^.+?([^\/\\]+)$/, "$1"), projectPath));
 			projectManger.projects[projectPath] = projectManger.projects[projectPath] || {};
 		}
@@ -87,16 +87,27 @@ let projectManger = {
 	 * 保存项目数据
 	 */
 	save: function() {
-		localStorage.setItem("fels-projects", JSON.stringify(projectManger.projects));
+		let keys = Object.keys(projectManger.projects).sort();
+		let data = {};
+		for (let index = 0; index < keys.length; index++) {
+			data[keys[index]] = projectManger.projects[keys[index]];
+		}
+
+		localStorage.setItem("fels-projects", JSON.stringify(data));
 	},
 
 	update: function(data) {
-		let hasProjects = seleProjects.selectedOptions.length;
-
-		projectManger.projects = Object.assign(projectManger.projects, data);
-		if (!hasProjects) {
-			projectManger.initList();
+		let projectPath;
+		for (projectPath in data) {
+			if (projectManger.projects[projectPath]) {
+				for (let key in data[projectPath]) {
+					projectManger.projects[projectPath][key] = data[projectPath][key];
+				}
+			} else {
+				projectManger.projects[projectPath] = data[projectPath];
+			}
 		}
+		projectManger.initProject(projectPath);
 		projectManger.save();
 	},
 
@@ -117,10 +128,14 @@ let projectManger = {
 	initProject(projectPath) {
 		if (!projectPath) {
 			projectPath = seleProjects.value;
-		} else if (!projectManger.projects[projectPath]) {
-			projectManger.addProject(projectPath);
+		} else {
+			if (!projectManger.projects[projectPath]) {
+				projectManger.addProject(projectPath);
+			}
+			if (!Array.from(seleProjects.selectedOptions).some(opt => opt.value === projectPath)) {
+				seleProjects.value = projectPath;
+			}
 		}
-		seleProjects.curr = projectPath;
 		require("./project").init(projectPath, projectManger.projects[projectPath]);
 	},
 };

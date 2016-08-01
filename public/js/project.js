@@ -11,23 +11,25 @@ let project = {
 		project.getHook();
 		project.getReport();
 	},
-	setReport: function(report) {
-		project.curr.report = report;
-	},
 	getReport: function() {
 		wrap.querySelector("#reporter+div").innerHTML = reporter.toHTML(project.curr.report, project.curr.path) || "无错误";
 	},
 	setHook: function() {
-		let hookConfig = hook.get(project.curr);
-		Array.from(planHook.querySelectorAll("[type=checkbox]")).forEach(elem=>{
+		let hookConfig = project.curr.hook || {};
+		Array.from(planHook.querySelectorAll("[type=checkbox]")).forEach(elem => {
 			hookConfig[elem.id.replace(/^\w+-/, "")] = elem.checked;
 		});
-		hook.save(project.curr.path, hookConfig);
+		hookConfig.base = project.curr.path;
+		hook.set(hookConfig);
 	},
 	getHook: function() {
-		let hookConfig = hook.get(project.curr);
-		Array.from(planHook.querySelectorAll("[type=checkbox]")).forEach(elem=>{
-			elem.checked = hookConfig[elem.id.replace(/^\w+-/, "")];
+		let curr = project.curr;
+		return hook.get(curr.path).then(hookConfig => {
+			curr.hook = hookConfig;
+			Array.from(planHook.querySelectorAll("[type=checkbox]")).forEach(elem => {
+				elem.checked = hookConfig[elem.id.replace(/^\w+-/, "")];
+			});
+			return hookConfig;
 		});
 	},
 };
