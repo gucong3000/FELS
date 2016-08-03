@@ -1,30 +1,40 @@
 "use strict";
 
 const path = require("path");
-
-let seleProjects = document.querySelector("aside select");
-let wrap = document.querySelector("section");
-
 const {
-
+	shell,
 	remote,
 	ipcRenderer,
 
 } = require("electron");
 const dialog = remote.dialog;
+const unifiedpath = remote.require("./unifiedpath");
 
+let seleProjects = document.querySelector("aside select");
+let wrap = document.querySelector("section");
 let projectManger = {
 
 	/**
 	 * 项目数据
 	 */
 	projects: (() => {
+		let data;
 		try {
-			return JSON.parse(localStorage.getItem("fels-projects")) || {};
+			data = JSON.parse(localStorage.getItem("fels-projects"));
 		} catch (ex) {
-			console.log("初始化数据", ex);
+
 		}
-		return {};
+		if (!data) {
+			data = {};
+			console.log("初始化数据");
+			return data;
+		} else {
+			let newData = {};
+			Object.keys(data).forEach(projectPath => {
+				newData[unifiedpath(projectPath)] = data[projectPath];
+			});
+			return newData;
+		}
 	})(),
 
 	/**
@@ -39,10 +49,16 @@ let projectManger = {
 				return;
 			}
 
-			dirs.forEach(projectManger.addProject);
+			dirs = dirs.map(unifiedpath);
 
-			projectManger.normal();
-			projectManger.save();
+			let addedDirs = dirs.filter(dir => projectManger.addProject(dir));
+
+			if (addedDirs.length) {
+				projectManger.initList(addedDirs[addedDirs.length - 1]);
+				projectManger.save();
+			} else {
+				projectManger.initList(dirs[dirs.length - 1]);
+			}
 		});
 	},
 
@@ -50,11 +66,12 @@ let projectManger = {
 	 * 添加项目
 	 * @param {String} projectPath 项目路径
 	 */
-	addProject: function(projectPath, force) {
-		projectPath = remote.require("./unifiedpath")(projectPath);
-		if (force || !projectManger.projects[projectPath]) {
-			seleProjects.appendChild(new Option(projectPath.replace(/^.+?([^\/\\]+)$/, "$1"), projectPath));
-			projectManger.projects[projectPath] = projectManger.projects[projectPath] || {};
+	addProject: function(projectPath, data) {
+		if (!projectManger.projects[projectPath]) {
+			projectManger.projects[projectPath] = data || {};
+			return true;
+		} else {
+			return false;
 		}
 	},
 
@@ -77,46 +94,49 @@ let projectManger = {
 		if (seleProjects.selectedOptions.length <= 0) {
 			seleProjects.selectedIndex = 0;
 		}
+		seleProjects.size = seleProjects.options.length;
 		if (seleProjects.selectedOptions.length) {
 			projectManger.initProject();
 		}
-		seleProjects.size = seleProjects.options.length;
 	},
 
 	/**
 	 * 保存项目数据
 	 */
 	save: function() {
-		let keys = Object.keys(projectManger.projects).sort();
-		let data = {};
-		for (let index = 0; index < keys.length; index++) {
-			data[keys[index]] = projectManger.projects[keys[index]];
-		}
-
-		localStorage.setItem("fels-projects", JSON.stringify(data));
+		localStorage.setItem("fels-projects", JSON.stringify(projectManger.projects));
 	},
 
 	update: function(data) {
-		let projectPath;
-		for (projectPath in data) {
-			if (projectManger.projects[projectPath]) {
+		let unifiedProjectPath;
+		for (let projectPath in data) {
+			unifiedProjectPath = unifiedpath(projectPath);
+
+			if (projectManger.projects[unifiedProjectPath]) {
 				for (let key in data[projectPath]) {
-					projectManger.projects[projectPath][key] = data[projectPath][key];
+					projectManger.projects[unifiedProjectPath][key] = data[projectPath][key];
 				}
 			} else {
-				projectManger.projects[projectPath] = data[projectPath];
+				projectManger.projects[unifiedProjectPath] = data[projectPath];
 			}
 		}
-		projectManger.initProject(projectPath);
+		projectManger.initList(unifiedProjectPath);
+		projectManger.initProject(unifiedProjectPath);
 		projectManger.save();
 	},
 
 	/**
 	 * 初始化项目列列表
 	 */
-	initList: function() {
-		for (let projectPath in projectManger.projects) {
-			projectManger.addProject(projectPath, true);
+	initList: function(curr) {
+		let newOpts = Object.keys(projectManger.projects).sort().map((projectPath, index) => {
+			let option = new Option(projectPath.replace(/^.+?([^\/\\]+)$/, "$1"), projectPath);
+			seleProjects.options[index] = option;
+			return option;
+		});
+		seleProjects.options.length = newOpts.length;
+		if (curr) {
+			seleProjects.value = curr;
 		}
 		projectManger.normal();
 	},
@@ -128,14 +148,8 @@ let projectManger = {
 	initProject(projectPath) {
 		if (!projectPath) {
 			projectPath = seleProjects.value;
-		} else {
-			if (!projectManger.projects[projectPath]) {
-				projectManger.addProject(projectPath);
-			}
-			if (!Array.from(seleProjects.selectedOptions).some(opt => opt.value === projectPath)) {
-				seleProjects.value = projectPath;
-			}
 		}
+		projectManger.addProject(projectPath);
 		require("./project").init(projectPath, projectManger.projects[projectPath]);
 	},
 };
@@ -157,7 +171,7 @@ window.onbeforeunload = projectManger.save;
 
 const Menu = remote.Menu;
 
-var template = [{
+let listTpl = [{
 	label: "添加项目",
 	click: projectManger.add
 }, {
@@ -165,13 +179,51 @@ var template = [{
 	click: projectManger.remove
 }];
 
-let listMenu = Menu.buildFromTemplate(template);
+let linkTpl = [{
+	label: "新窗口中打开连接",
+	click: function() {
+		window.open(document.activeElement.href);
+	}
+}, {
+	label: "在浏览器中打开连接",
+	click: function() {
+		shell.openExternal(document.activeElement.href);
+	}
+}, {
+	label: "以默认打开方式打开文件",
+	click: function() {
+		shell.openItem(path.normalize(document.activeElement.getAttribute("href")));
+	}
+}, {
+	label: "打开文件所在文件夹",
+	click: function() {
+		shell.showItemInFolder(path.normalize(document.activeElement.getAttribute("href")));
+	}
+}];
+
+let listMenu = Menu.buildFromTemplate(listTpl);
+let linkMenu = Menu.buildFromTemplate(linkTpl);
+
+document.addEventListener("contextmenu", function(e) {
+	e.preventDefault();
+}, false);
 
 document.querySelector("aside").addEventListener("contextmenu", function() {
-	let currWin = remote.getCurrentWindow();
-	process.nextTick(() => {
-		listMenu.popup(currWin);
-	});
+	listMenu.items[1].enabled = seleProjects.selectedOptions.length > 0;
+	listMenu.popup(remote.getCurrentWindow());
+}, false);
+
+wrap.addEventListener("contextmenu", function(e) {
+	if (e.target.tagName === "A" && e.target.href) {
+
+		/*		let isUrl = /^https?:\/\//i.test(e.target.href);
+				listMenu.items[0].enabled = isUrl;
+				listMenu.items[1].enabled = isUrl;
+				listMenu.items[2].enabled = !isUrl;
+				listMenu.items[3].enabled = !isUrl;
+		*/
+		linkMenu.popup(remote.getCurrentWindow());
+	}
 }, false);
 
 projectManger.initList();

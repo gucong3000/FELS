@@ -44,54 +44,10 @@ document.addEventListener("DOMContentLoaded", function() {
 					图形界面风格错误报告
 				</label>
 			</fieldset>
-			<fieldset id="stylelint">
+			<fieldset>
 				<legend>StyleLint</legend>
-				<fieldset>
-					<legend>block-no-empty</legend>
-					<select name="severity">
-						<option value="error" selected>错误</option>
-						<option value="warning">警告</option>
-						<option value="null">关闭</option>
-					</select>
-					<select name="value">
-						<option value="true" selected>不允许空的语句块</option>
-					</select>
-				</fieldset>
-				<fieldset>
-					<legend>color-no-invalid-hex</legend>
-					<select name="severity">
-						<option value="error" selected>错误</option>
-						<option value="warning">警告</option>
-						<option value="null">关闭</option>
-					</select>
-					<select name="value">
-						<option value="true" selected>无效的十六进制颜色</option>
-					</select>
-				</fieldset>
-				<fieldset>
-					<legend>declaration-bang-space-after</legend>
-					<select name="severity">
-						<option value="error">错误</option>
-						<option value="warning" selected>警告</option>
-						<option value="null">关闭</option>
-					</select>
-					<select name="value">
-						<option value="always">声明中的感叹号之后需要一个空格</option>
-						<option value="never">声明中的感叹号之后不要空格</option>
-					</select>
-				</fieldset>
-				<fieldset>
-					<legend>declaration-bang-space-before</legend>
-					<select name="severity">
-						<option value="error">错误</option>
-						<option value="warning" selected>警告</option>
-						<option value="null">关闭</option>
-					</select>
-					<select name="value">
-						<option value="always">声明中的感叹号之前需要一个空格</option>
-						<option value="never">声明中的感叹号之前不要空格</option>
-					</select>
-				</fieldset>
+				<form id="stylelint">
+				</form>
 			</fieldset>
 			<fieldset>
 				<legend>ESLint</legend>

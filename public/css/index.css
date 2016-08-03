@@ -15,8 +15,11 @@
 	background-color: #555;
 }
 
-html,
-body {
+input:invalid, select:invalid {
+	box-shadow: 0 0 6px red;
+}
+
+html, body {
 	overflow: hidden;
 	height: 100;
 }
@@ -48,8 +51,17 @@ section {
 	height: 100vh;
 }
 
-section div {
+section * {
+	font-size: inherit;
+}
+
+section > div {
 	display: none;
+}
+
+section fieldset form {
+	max-height: 50vh;
+	overflow-y: auto;
 }
 
 section [name="tabs"] {
@@ -58,6 +70,24 @@ section [name="tabs"] {
 
 section [name="tabs"]:checked + div {
 	display: block;
+}
+
+section fieldset {
+	font-size: 12px;
+}
+
+section fieldset [type="number"] {
+	width: 3em;
+}
+
+fieldset span, fieldset fieldset {
+	display: inline-block;
+	white-space: nowrap;
+}
+
+fieldset span, fieldset select[name="value"] {
+	margin: 0 1em;
+	min-width: 24em;
 }
 
 nav {

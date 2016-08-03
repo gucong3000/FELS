@@ -41,7 +41,7 @@ function toMD(base, relative, errors) {
 			}
 		}
 
-		let message = `${ pos }${ error.message } (${ subMsg.join(" ") })`;
+		let message = `${ pos }${ error.severity } ${ error.message } (${ subMsg.join(" ") })`;
 
 		if (error.source) {
 			message += "\n\n```\n" + error.source + "\n```";

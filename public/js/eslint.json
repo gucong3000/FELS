@@ -1,0 +1,275 @@
+{
+	"at-rule-no-vendor-prefix": {
+		"message": "@规则不应使用私有属性前缀",
+		"severity": "warning"
+	},
+	"block-no-empty": {
+		"message": "不允许空的语句块",
+		"severity": "error"
+	},
+	"color-no-invalid-hex": {
+		"message": "无效的十六进制颜色",
+		"severity": "error"
+	},
+	"declaration-bang-space-after": {
+		"options": {
+			"always": "声明中的感叹号之后必须空一格",
+			"never": "声明中的感叹号之后不要空格"
+		},
+		"severity": "warning",
+		"value": "never"
+	},
+	"declaration-bang-space-before": {
+		"options": {
+			"always": "声明中的感叹号之前必须空一格",
+			"never": "声明中的感叹号之前不要空格"
+		},
+		"severity": "warning",
+		"value": "always"
+	},
+	"declaration-colon-newline-after": {
+		"options": {
+			"always": "声明中的冒号之后需要换行",
+			"always-multi-line": "声明写为多行时，冒号之后需要换行"
+		},
+		"severity": "warning",
+		"value": "always-multi-line"
+	},
+	"declaration-colon-space-after": {
+		"options": {
+			"always": "声明中的冒号之后必须空格",
+			"always-single-line": "声明写为单行时，冒号之后必须空格",
+			"never": "声明中的冒号之后不要空格"
+		},
+		"severity": "warning",
+		"value": "always-single-line"
+	},
+	"declaration-colon-space-before": {
+		"options": {
+			"always": "声明中的冒号之前必须空格",
+			"never": "声明中的冒号之前不要空格"
+		},
+		"severity": "warning",
+		"value": "never"
+	},
+	"declaration-no-important": {
+		"message": "声明中禁用`!important`",
+		"severity": "warning"
+	},
+	"function-calc-no-unspaced-operator": {
+		"message": "运算符前后必须空格",
+		"severity": "warning"
+	},
+	"function-comma-newline-after": {
+		"options": {
+			"always": "函数中的逗号后需要换行",
+			"always-multi-line": "函数写为多行时，逗号后需要换行",
+			"never-multi-line": "函数写为多行时，逗号后不要换行"
+		},
+		"severity": "warning",
+		"value": "always-multi-line"
+	},
+	"function-comma-newline-before": {
+		"options": {
+			"always": "函数中的逗号前需要换行",
+			"always-multi-line": "函数写为多行时，逗号前需要换行",
+			"never-multi-line": "函数写为多行时，逗号前不要换行"
+		},
+		"severity": "warning",
+		"value": "never-multi-line"
+	},
+	"function-comma-space-after": {
+		"options": {
+			"always": "函数中的逗号后必须空格",
+			"always-single-line": "函数写为单行时，逗号后必须空格",
+			"never": "函数中的逗号后不要空格",
+			"never-single-line": "函数写为单行时，逗号后不要空格"
+		},
+		"severity": "warning",
+		"value": "always-single-line"
+	},
+	"function-comma-space-before": {
+		"options": {
+			"always": "函数中的逗号前必须空格",
+			"always-single-line": "函数写为单行时，逗号前必须空格",
+			"never": "函数中的逗号前不要空格",
+			"never-single-line": "函数写为单行时，逗号前不要空格"
+		},
+		"severity": "warning",
+		"value": "never"
+	},
+	"function-linear-gradient-no-nonstandard-direction": {
+		"message": "`linear-gradient` 方向声明语法错误",
+		"severity": "error"
+	},
+	"function-max-empty-lines": {
+		"message": "函数中最大允许${ number }个空行",
+		"severity": "warning",
+		"value": 0
+	},
+	"function-parentheses-newline-inside": {
+		"options": {
+			"always": "函数的括号内侧必须换行",
+			"always-multi-line": "函数写为单行时，括号内侧必须换行",
+			"never-multi-line": "函数写为单行时，括号内侧不要换行"
+		},
+		"severity": "warning",
+		"value": "always-multi-line"
+	},
+	"function-parentheses-space-inside": {
+		"options": {
+			"always": "函数的括号内侧必须空格",
+			"always-single-line": "函数写为单行时，括号内侧必须空格",
+			"never": "函数的括号内侧不要空格",
+			"never-single-line": "函数写为单行时，括号内侧不要空格"
+		},
+		"severity": "warning",
+		"value": "never"
+	},
+	"function-url-quotes": {
+		"options": {
+			"always": "url必须用引号包裹",
+			"never": "url不要用引号包裹"
+		},
+		"severity": "warning",
+		"value": "always"
+	},
+	"function-whitespace-after": {
+		"options": {
+			"always": "函数后必须用空格分隔",
+			"never": "函数后不要用空格分隔"
+		},
+		"severity": "warning",
+		"value": "always"
+	},
+	"indentation": {
+		"options": {
+			"2": "使用2个空格缩进",
+			"4": "使用4个空格缩进",
+			"8": "使用8个空格缩进",
+			"tab": "使用tab缩进"
+		},
+		"severity": "warning",
+		"value": "tab"
+	},
+	"max-empty-lines": {
+		"message": "最大允许${ number }个空行",
+		"severity": "warning",
+		"value": 2
+	},
+	"max-nesting-depth": {
+		"message": "最大允许${ number }层嵌套",
+		"severity": "warning",
+		"value": 4
+	},
+	"media-feature-colon-space-after": {
+		"options": {
+			"always": "@媒体查询中冒号之后必须空格",
+			"never": "@媒体查询冒号之后不要空格"
+		},
+		"severity": "warning",
+		"value": "always"
+	},
+	"media-feature-colon-space-before": {
+		"options": {
+			"always": "@媒体查询中冒号之前必须空格",
+			"never": "@媒体查询冒号之前不要空格"
+		},
+		"severity": "warning",
+		"value": "never"
+	},
+	"media-feature-name-no-vendor-prefix": {
+		"message": "@媒体查询不应使用私有属性前缀",
+		"severity": "warning"
+	},
+	"no-descending-specificity": {
+		"message": "权重较低的选择器，不得覆盖权重较高的选择器",
+		"severity": "warning"
+	},
+	"no-duplicate-selectors": {
+		"message": "不能使用重复的选择器",
+		"severity": "warning"
+	},
+	"no-empty-source": {
+		"message": "不能一整行全是空白",
+		"severity": "warning"
+	},
+	"no-eol-whitespace": {
+		"message": "行尾不能有多余的空格",
+		"severity": "warning"
+	},
+	"no-extra-semicolons": {
+		"message": "不允许重复的分号",
+		"severity": "warning"
+	},
+	"number-leading-zero": {
+		"options": {
+			"always": "小数必须使用前导0",
+			"never": "小数不允许使用前导0"
+		},
+		"severity": "warning",
+		"value": "never"
+	},
+	"number-no-trailing-zeros": {
+		"message": "小数数字不能以0结尾",
+		"severity": "warning"
+	},
+	"property-no-vendor-prefix": {
+		"message": "属性名不应使用私有属性前缀",
+		"severity": "warning"
+	},
+	"selector-list-comma-newline-after": {
+		"options": {
+			"always": "选择器中的逗号后必须换行",
+			"always-multi-line": "选择器写成多行时，逗号后必须换行",
+			"never-multi-line": "选择器写成多行时，逗号后不要换行"
+		},
+		"severity": "warning",
+		"value": "always-multi-line"
+	},
+	"selector-list-comma-newline-before": {
+		"options": {
+			"always": "选择器中的逗号前必须换行",
+			"always-multi-line": "选择器写成多行时，逗号前必须换行",
+			"never-multi-line": "选择器写成多行时，逗号前不要换行"
+		},
+		"severity": "warning",
+		"value": "never-multi-line"
+	},
+	"selector-list-comma-space-after": {
+		"options": {
+			"always": "选择器中的逗号后必须空格",
+			"always-single-line": "选择器写成单行时，逗号后必须空格",
+			"never": "选择器中的逗号后不要空格",
+			"never-single-line": "选择器写成单行时，逗号后不要空格"
+		},
+		"severity": "warning",
+		"value": "always-single-line"
+	},
+	"selector-list-comma-space-before": {
+		"options": {
+			"always": "选择器中的逗号前必须空格",
+			"always-single-line": "选择器写成单行时，逗号前必须空格",
+			"never": "选择器中的逗号前不要空格",
+			"never-single-line": "选择器写成单行时，逗号前不要空格"
+		},
+		"severity": "warning",
+		"value": "never"
+	},
+	"selector-no-vendor-prefix": {
+		"message": "选择器不应使用私有属性前缀",
+		"severity": "warning"
+	},
+	"string-quotes": {
+		"options": {
+			"double": "应该使用双引号包裹字符串",
+			"single": "应该使用单引号包裹字符串"
+		},
+		"severity": "warning",
+		"value": "double"
+	},
+	"value-no-vendor-prefix": {
+		"message": "属性值不应使用私有属性前缀",
+		"severity": "warning"
+	}
+}

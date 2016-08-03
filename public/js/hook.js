@@ -32,9 +32,9 @@ let hook = {
 		}).then(cmd => {
 			cmd = String(cmd).trim();
 			return {
-				enable: /\s+--gulpfile\s+/.test(cmd),
-				color: !cmd || /\s+--color\s+/.test(cmd),
-				gui: !cmd || /\s+--gui\s+/.test(cmd),
+				enable: /\s+--gulpfile\b/.test(cmd),
+				color: !cmd || /\s+--color\b/.test(cmd),
+				gui: !cmd || /\s+--gui\b/.test(cmd),
 			};
 		}).catch(() => {
 			let config = {
