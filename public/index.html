@@ -45,13 +45,47 @@ document.addEventListener("DOMContentLoaded", function() {
 				</label>
 			</fieldset>
 			<fieldset>
-				<legend>StyleLint</legend>
-				<form id="stylelint">
+				<legend>ESLint</legend>
+				<form id="eslint">
+					<p>
+						<input type="button" name="edit" value="编辑配置文件">
+					</p>
+					<p>
+						<label>
+							<input type="checkbox" name="env.es6">
+							启用 ES6
+						</label>
+					</p>
+					<p>
+						<label>
+							<input type="checkbox" name="env.browser">
+							浏览器环境
+						</label>
+					</p>
+					<p>
+						<label>
+							<input type="checkbox" name="env.node">
+							node环境
+						</label>
+					</p>
 				</form>
 			</fieldset>
 			<fieldset>
-				<legend>ESLint</legend>
-
+				<legend>StyleLint</legend>
+				<form id="stylelint">
+					<p>
+						<input type="button" name="edit" value="编辑配置文件">
+					</p>
+					<p>
+						<label>
+							默认错误等级
+							<select name="defaultSeverity">
+								<option value="warning">警告</option>
+								<option value="error">错误</option>
+							</select>
+						</label>
+					</p>
+				</form>
 			</fieldset>
 		</div>
 	</section>

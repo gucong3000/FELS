@@ -1,0 +1,30 @@
+{
+	"ecmaFeatures": {
+		"globalReturn": false,
+		"impliedStrict": true,
+		"jsx": true
+	},
+	"ecmaVersion": 7,
+	"env": {
+		"browser": false,
+		"es6": true,
+		"node": true
+	},
+	"extends": [
+		"eslint:recommended"
+	],
+	"rules": {
+		"no-console": [
+			"warn",
+			{
+				"allow": [
+					"warn",
+					"error"
+				]
+			}
+		],
+		"require-jsdoc": "warn",
+		"valid-jsdoc": "warn"
+	},
+	"sourceType": "module"
+}

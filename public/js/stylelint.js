@@ -1,42 +1,43 @@
 "use strict";
 const fs = require("fs-extra-async");
 const path = require("path");
-const {
+const stringify = require("./json-stringify");
 
-	remote,
-
-} = require("electron");
-const json = remote.require("./lib-json");
-const stylelintCfgs = json.sort(require("./eslint.json"), true);
-const planStylelint = document.querySelector("#stylelint");
-
-
-// fs.writeFileAsync(require.resolve("./eslint.json"), json.stringify(stylelintCfgs));
+/**
+ * 尝试使用require函数加载模块，然后清空缓存
+ * @param  {String} path 模块路径
+ * @return {Object}      require函数返回的数据
+ */
 function tryRequire(path) {
 	try {
-		return require(path);
+		let exports = require(path);
+		try {
+			delete require.cache[require.resolve(path)];
+		} catch (ex) {
+			//
+		}
+		return exports;
 	} catch (ex) {
 		return {};
 	}
 }
 
-function creatSelect(options, name) {
-	let opts = [];
-	for (let key in options) {
-		opts.push(`<option value="${ key }">${ options[key] }</option>`);
-	}
-	return `<select name="${ name || "severity" }" required>\n\t\t${ opts.join("\n\t\t") }\n\t</select>`;
-}
+/**
+ * 将json数据写入文件
+ * @param  {String} file 文件路径
+ * @param  {Object} data json数据
+ * @return {Promise}     异步文件写入Promise对象
+ */
+function outputjson(file, data) {
+	return stringify(file, data)
 
-let htmlSeverity = creatSelect({
-	error: "错误",
-	warning: "警告",
-	null: "关闭",
-});
-let htmlDefaultSeverity = creatSelect({
-	error: "错误",
-	warning: "警告",
-});
+	.then(data => {
+		if (/.js$/.test(file)) {
+			data = `module.exports = ${ data };`;
+		}
+		return fs.writeFileAsync(file, data);
+	});
+}
 
 let stylelint = {
 	get: function(baseDir) {
@@ -44,13 +45,26 @@ let stylelint = {
 			fs.readJsonAsync(path.join(baseDir, "package.json")).then(pkg => pkg.stylelint).catch(() => {}),
 			fs.readJsonAsync(path.join(baseDir, ".stylelintrc")).catch(() => {}),
 			tryRequire(path.join(baseDir, "stylelint.config.js")),
-		]).then(cfg => Object.assign.apply(Object, cfg.map(cfg => cfg || {})));
+		]).then(cfgs => Object.assign.apply(Object, cfgs.map(cfg => cfg || {})));
 	},
 	set: function(baseDir, cfg) {
 		let pkgPath = path.join(baseDir, "package.json");
 		let rcPath = path.join(baseDir, ".stylelintrc");
 
-		cfg = json.sort(cfg, true);
+		cfg.defaultSeverity = cfg.defaultSeverity || "warning";
+		if (!cfg.extends) {
+			cfg.extends = ["stylelint-config-standard"];
+		} else if (Array.isArray(cfg.extends)) {
+			if (cfg.extends.indexOf("stylelint-config-standard") < 0) {
+				cfg.extends.unshift("stylelint-config-standard");
+			}
+		} else if (cfg.extends !== "stylelint-config-standard") {
+			cfg.extends = ["stylelint-config-standard", cfg.extends];
+		}
+
+		if (!cfg.defaultSeverity) {
+			cfg.defaultSeverity = "warning";
+		}
 
 		return fs.readJsonAsync(pkgPath)
 
@@ -59,149 +73,60 @@ let stylelint = {
 				throw pkg;
 			}
 			pkg.stylelint = cfg;
-			return fs.writeFileAsync(pkgPath, json.stringify(pkg))
+			return outputjson(pkgPath, pkg)
 
-			.then(result => {
-				return fs.unlinkAsync(rcPath).then(() => result).catch(() => result);
-			});
+			.then(() => fs.unlinkAsync(rcPath));
 		})
 
-		.catch(() => {
-			return fs.writeFileAsync(rcPath, json.stringify(cfg));
+		.catch(() => outputjson(rcPath, cfg))
+
+		.then(() => fs.unlinkAsync(path.join(baseDir, "stylelint.config.js")))
+
+		.catch(ex => {
+			if (ex.code !== "ENOENT") {
+				console.error(ex);
+			}
 		})
 
-		.then(result => {
-			return fs.unlinkAsync(path.join(baseDir, "stylelint.config.js")).then(() => result).catch(() => result);
-		});
+		.then(() => cfg);
 	},
-	html: function() {
-		let stylelintHTML = [];
-		for (let ruleName in stylelintCfgs) {
-			let rule = stylelintCfgs[ruleName];
-			let value = rule.value;
-			let options = rule.options;
-			let message = rule.message;
-			let help = `<a href="http://stylelint.io/user-guide/rules/${ ruleName }/" target="_blank">?</a>`;
-
-			if (options) {
-				if (!value || !(value in options)) {
-					console.error("StyleLint的规则" + ruleName + "未指定正确的默认值");
-				}
-				value = creatSelect(options, "value");
-			} else if (message) {
-				message = message.replace(/\$\{\s*(\w+)\s*\}/g, `<input name="value" type="$1" min="0" max="9" value="${ value }" required>`);
-				value = `<span>${ message }</span>`;
-			} else {
-				console.error("StyleLint的规则" + ruleName + "未指定正确的消息");
-			}
-
-			if (!rule.severity) {
-				console.error("StyleLint的规则" + ruleName + "未指定正确的错误等级");
-			}
-
-			stylelintHTML.push(`<fieldset>\n\t<legend>${ ruleName }</legend>\n\t${ htmlSeverity }\n\t${ value }\n\t${ help }\n</fieldset>`);
-		}
-
-		stylelintHTML.unshift(`<p><label>默认错误级别：${ htmlDefaultSeverity }</label></p>`);
-		return stylelintHTML.join("\n");
-	},
-	getStylelint: function() {
+	update: function(key, value) {
 		let curr = stylelint.curr;
-		return stylelint.get(curr.path).then(stylelintRc => {
-			curr.stylelint = stylelintRc;
+		return (curr.stylelint ? Promise.resolve(curr.stylelint) : stylelint.get(curr.path))
 
-			let rules = stylelintRc.rules || {};
-
-			planStylelint.querySelector("[name=severity]").value = stylelintRc.defaultSeverity || "warning";
-
-			Array.from(planStylelint.querySelectorAll("fieldset")).forEach(fieldset => {
-				let ruleName = fieldset.querySelector("legend").textContent.trim();
-				let rule = rules[ruleName];
-				let severity;
-				if (Array.isArray(rule)) {
-					if (rule[1]) {
-						severity = rule[1].severity;
-					}
-					rule = rule[0];
-				}
-				let fieldSeverity = fieldset.querySelector("[name=\"severity\"]");
-				let fieldValue = fieldset.querySelector("[name=\"value\"]");
-				let defaultOpt = stylelintCfgs[ruleName];
-
-				if (rule === null) {
-					fieldSeverity.value = "null";
-				} else {
-					fieldSeverity.value = severity || stylelintRc.defaultSeverity || defaultOpt.severity || "warning";
-				}
-				if (fieldValue) {
-					if (!(ruleName in rules)) {
-						rule = "value" in defaultOpt ? defaultOpt.value : true;
-					}
-					fieldValue.value = String(rule);
-				}
+		.then(cfg => {
+			new Function(`this.obj.${ key } = this.value`).call({
+				obj: proxy(cfg),
+				value: value,
 			});
-			if (!stylelintRc.rules || !stylelintRc.defaultSeverity) {
-				stylelint.setStylelint();
-			}
-			return stylelintRc;
+			return stylelint.set(curr.path, cfg)
 		});
 	},
-	setStylelint: function() {
-		if (!planStylelint.checkValidity()) {
-			planStylelint.querySelector("input:invalid, select:invalid").focus();
-			return;
-		}
-		let curr = stylelint.curr;
+	init: function(data) {
+		stylelint.curr = data;
+		return stylelint.get(data.path)
 
-		let stylelintRc = curr.stylelint || {};
-		stylelintRc.defaultSeverity = planStylelint.querySelector("[name=severity]").value;
-		if (!stylelintRc.rules) {
-			stylelintRc.rules = {};
-		}
-
-		Array.from(planStylelint.querySelectorAll("fieldset")).forEach(fieldset => {
-			let ruleName = fieldset.querySelector("legend").textContent.trim();
-			let fieldSeverity = fieldset.querySelector("[name=\"severity\"]");
-			let fieldValue = fieldset.querySelector("[name=\"value\"]");
-			let defaultOpt = stylelintCfgs[ruleName];
-			let message;
-			let severity;
-			let value;
-
-			if (fieldSeverity.value === "null") {
-				stylelintRc.rules[ruleName] = null;
-			} else {
-				if (stylelintRc.defaultSeverity !== fieldSeverity.value) {
-					severity = fieldSeverity.value;
-				}
-				if (fieldValue) {
-					value = fieldValue.value;
-					if (defaultOpt.options) {
-						message = defaultOpt.options[String(value)];
-					} else {
-						message = defaultOpt.message.replace(/\$\{\s*\w+\s*\}/g, value);
-					}
-					try {
-						value = eval(value);
-					} catch (ex) {
-
-					}
-				} else {
-					value = true;
-					message = defaultOpt.message;
-				}
-				stylelintRc.rules[ruleName] = [value, {
-					severity,
-					message
-				}];
-			}
+		.then(cfg => {
+			data.stylelint = cfg;
+			return stylelint.set(data.path, cfg);
 		});
-		return stylelint.set(curr.path, curr.stylelint);
 	},
 };
 
-planStylelint.innerHTML = stylelint.html();
-
-planStylelint.onchange = stylelint.setStylelint;
+/**
+ * 创建对象代理，以便解决为定义的属性访问时报错的问题
+ * @param  {Object} obj 要创建代理的对象
+ * @return {Proxy}      原对象的代理对象
+ */
+function proxy(obj) {
+	return new Proxy(obj, {
+		get: function(target, property) {
+			if (!target[property]) {
+				target[property] = {}
+			}
+			return proxy(target[property]);
+		}
+	});
+}
 
 module.exports = stylelint;
