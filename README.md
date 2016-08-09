@@ -11,15 +11,16 @@ FELS为您提供了一套由gulp驱动的动态开发环境，解决团队开发
 1.   在你的工作目录执行以下命令：
 
 ```bash
-npm config set sass_binary_site https://npm.taobao.org/mirrors/node-sass --global
-npm config set phantomjs_cdnurl https://npm.taobao.org/mirrors/phantomjs --global
-npm install -g cnpm --registry=https://registry.npm.taobao.org
-cnpm i -g gulp-cli
+sudo npm config set sass_binary_site https://npm.taobao.org/mirrors/node-sass --global
+sudo npm config set phantomjs_cdnurl https://npm.taobao.org/mirrors/phantomjs --global
+sudo npm install -g cnpm --registry=https://registry.npm.taobao.org
+sudo cnpm i -g gulp-cli
 git clone git@github.com:gucong3000/FELS.git
 cd FELS
-cnpm i
-npm start
+cnpm i && npm start
 ```
+
+> windows用户请去掉命令中的`sudo`
 
 > 下文所述的各项命令，均指在`FELS`目录下运行
 
