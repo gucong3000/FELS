@@ -4,10 +4,12 @@ const reporter = require("./reporter");
 const hook = require("./hook");
 const eslint = require("./eslint");
 const stylelint = require("./stylelint");
+const editorconfig = require("./editorconfig");
 const wrap = document.querySelector("section");
 const planHook = wrap.querySelector("#hook");
 const planStylelint = wrap.querySelector("#stylelint");
 const planEsint = document.querySelector("#eslint");
+const planEditorconfig = document.querySelector("#editorconfig");
 const {
 	shell,
 } = require("electron");
@@ -18,9 +20,23 @@ let project = {
 		data.path = projectPath;
 		wrap.querySelector("h1").innerHTML = path.normalize(projectPath);
 		project.getHook();
+		editorconfig.init(data).then(project.setEditorconfig);
 		stylelint.init(data).then(project.setStylelint);
 		project.getReport();
 		project.setEslint(eslint.init(data));
+	},
+	setEditorconfig: function(cfg) {
+		Array.from(planEditorconfig.elements).forEach(elem => {
+			if (elem.name && elem.name in cfg) {
+				if (elem.type === "checkbox") {
+					elem.checked = cfg[elem.name];
+				} else if (elem.type === "radio") {
+					elem.checked = elem.value === cfg[elem.name];
+				} else {
+					elem.value = cfg[elem.name];
+				}
+			}
+		})
 	},
 	setEslint: function(cfg) {
 		planEsint.querySelector("[name=\"env.es6\"]").checked = cfg.env.es6;
@@ -51,22 +67,49 @@ let project = {
 			return hookConfig;
 		});
 	},
-
 };
 
+
+/**
+ * 获取表单项的值，checkbox返回是否选中，radio返回选中了的元素的值，其他直接发挥元素值
+ * @param  {Element} elem 表单项DOM元素
+ * @return {String|Boolean}      保单元素值
+ */
+function getElemVal(elem) {
+	if (!elem.checkValidity()) {
+		elem.focus();
+		throw elem.validationMessage;
+	}
+	if (elem.type === "checkbox") {
+		return elem.checked;
+	} else if (elem.type === "radio" && !!elem.checked) {
+		elem = elem.form.querySelector(`[name="${ elem.name }"]:checked`);
+	}
+	return elem.value;
+}
+
 planEsint.onchange = function(e) {
-	eslint.update(e.target.name, e.target.type === "checkbox" ? e.target.checked : e.target.value);
+	eslint.update(e.target.name, getElemVal(e.target));
 };
 
 planStylelint.onchange = function(e) {
-	stylelint.update(e.target.name, e.target.type === "checkbox" ? e.target.checked : e.target.value);
+	stylelint.update(e.target.name, getElemVal(e.target));
+};
+planEditorconfig.onchange = function(e) {
+	editorconfig.update(e.target.name, getElemVal(e.target));
 };
 
 planStylelint.querySelector("[name=edit]").onclick = function() {
 	shell.openItem(path.join(project.curr.path, ".stylelintrc"));
 };
+
 planEsint.querySelector("[name=edit]").onclick = function() {
 	shell.openItem(path.join(project.curr.path, ".eslintrc.json"));
 };
+
+planEditorconfig.querySelector("[name=edit]").onclick = function() {
+	shell.openItem(path.join(project.curr.path, ".editorconfig"));
+};
+
 planHook.onchange = project.setHook;
 module.exports = project;

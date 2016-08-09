@@ -29,26 +29,73 @@ document.addEventListener("DOMContentLoaded", function() {
 		<div>无错误</div>
 		<input type="radio" id="config" name="tabs">
 		<div>
-			<fieldset id="hook">
+			<fieldset>
 				<legend>代码库钩子</legend>
-				<label>
-					<input type="checkbox" checked id="hook-enable">
-					开启
-				</label>
-				<label>
-					<input type="checkbox" checked id="hook-color">
-					控制台彩色
-				</label>
-				<label>
-					<input type="checkbox" checked id="hook-gui">
-					图形界面风格错误报告
-				</label>
+				<form id="hook">
+					<p>
+						<label>
+							<input type="checkbox" checked id="hook-enable">
+							开启
+						</label>
+					</p>
+					<p>
+						<label>
+							<input type="checkbox" checked id="hook-color">
+							控制台彩色
+						</label>
+					</p>
+					<p>
+						<label>
+							<input type="checkbox" checked id="hook-gui">
+							图形界面风格错误报告
+						</label>
+					</p>
+				</form>
+			</fieldset>
+			<fieldset>
+				<legend>文件格式设置</legend>
+				<form id="editorconfig">
+					<p>
+						<input type="button" name="edit" value="编辑配置文件">
+						<a href="http://editorconfig.org/" target="editorconfig">帮助</a>
+					</p>
+					<p>
+						缩进方式：
+						<input type="radio" name="indent_style" value="tab">
+						tab缩进
+						<input type="radio" name="indent_style" value="space">
+						<input required type="number" min="2" step="2" max="8" name="indent_size" value="4">个空格缩进
+					</p>
+					<p>
+						<label>
+							<input type="checkbox" name="trim_trailing_whitespace">
+							去除行尾多余的空格
+						</label>
+					</p>
+					<p>
+						<label>
+							<input type="checkbox" name="insert_final_newline">
+							文件结尾插入空行
+						</label>
+					</p>
+					<p>
+						<label>
+							换行符：
+							<select name="end_of_line">
+								<option value="cr">Mac OS 9 换行符 (CR)</option>
+								<option selected value="lf">Unix 换行符 (LF)</option>
+								<option value="crlf">Windows 换行符 (CRLF)</option>
+							</select>
+						</label>
+					</p>
+				</form>
 			</fieldset>
 			<fieldset>
 				<legend>ESLint</legend>
 				<form id="eslint">
 					<p>
 						<input type="button" name="edit" value="编辑配置文件">
+						<a href="http://cn.eslint.org/docs/user-guide/configuring" target="eslint">帮助</a>
 					</p>
 					<p>
 						<label>
@@ -75,6 +122,7 @@ document.addEventListener("DOMContentLoaded", function() {
 				<form id="stylelint">
 					<p>
 						<input type="button" name="edit" value="编辑配置文件">
+						<a href="http://stylelint.io/user-guide/configuration/" target="stylelint">帮助</a>
 					</p>
 					<p>
 						<label>
