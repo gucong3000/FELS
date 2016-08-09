@@ -18,6 +18,7 @@ cnpm i -g gulp-cli
 git clone git@github.com:gucong3000/FELS.git
 cd FELS
 cnpm i
+npm start
 ```
 
 > 下文所述的各项命令，均指在`FELS`目录下运行
