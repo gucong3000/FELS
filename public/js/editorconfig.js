@@ -31,11 +31,23 @@ let editorconfig = {
 		return editorconfig.get();
 	},
 	get: function() {
-		return fs.readFileAsync(path.join(editorconfig.curr.path, ".editorconfig"))
+		let rcPath = path.join(editorconfig.curr.path, ".editorconfig");
+		return fs.readFileAsync(rcPath)
 
 		.then(contents => editorconfig.curr.editorconfig = parseString(contents.toString()))
 
 		.catch(() => {
+			fs.writeFileAsync(rcPath, `# This file is for unifying the coding style for different editors and IDEs
+# editorconfig.org
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+indent_style = tab
+insert_final_newline = true
+trim_trailing_whitespace = true`)
 			return defaultConfig;
 		});
 	},

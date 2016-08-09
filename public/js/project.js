@@ -12,6 +12,7 @@ const planEsint = document.querySelector("#eslint");
 const planEditorconfig = document.querySelector("#editorconfig");
 const {
 	shell,
+	remote,
 } = require("electron");
 
 let project = {
@@ -24,6 +25,20 @@ let project = {
 		stylelint.init(data).then(project.setStylelint);
 		project.getReport();
 		project.setEslint(eslint.init(data));
+		remote.require("./getreptype")(projectPath)
+
+		.then(type => {
+			planHook.classList.remove("hg");
+			planHook.classList.remove("git");
+			planHook.classList.remove("error");
+			planHook.classList.add(type);
+		})
+
+		.catch(()=>{
+			planHook.classList.remove("hg");
+			planHook.classList.remove("git");
+			planHook.classList.add("error");
+		})
 	},
 	setEditorconfig: function(cfg) {
 		Array.from(planEditorconfig.elements).forEach(elem => {
@@ -88,6 +103,15 @@ function getElemVal(elem) {
 	return elem.value;
 }
 
+/**
+ * 使用默认编辑器打开文件
+ * @param  {String} subPath 文件的相对路径
+ * @return {undefined}
+ */
+function openFile(subPath) {
+	shell.openItem(path.join(project.curr.path, subPath));
+}
+
 planEsint.onchange = function(e) {
 	eslint.update(e.target.name, getElemVal(e.target));
 };
@@ -99,16 +123,24 @@ planEditorconfig.onchange = function(e) {
 	editorconfig.update(e.target.name, getElemVal(e.target));
 };
 
-planStylelint.querySelector("[name=edit]").onclick = function() {
-	shell.openItem(path.join(project.curr.path, ".stylelintrc"));
+planHook.querySelector(".hg [name=edit]").onclick = function() {
+	openFile(".hg/hgrc");
+};
+
+planHook.querySelector(".git [name=edit]").onclick = function() {
+	openFile(".git/hooks/pre-commit");
 };
 
 planEsint.querySelector("[name=edit]").onclick = function() {
-	shell.openItem(path.join(project.curr.path, ".eslintrc.json"));
+	openFile(".eslintrc.json");
+};
+
+planStylelint.querySelector("[name=edit]").onclick = function() {
+	openFile(".stylelintrc");
 };
 
 planEditorconfig.querySelector("[name=edit]").onclick = function() {
-	shell.openItem(path.join(project.curr.path, ".editorconfig"));
+	openFile(".editorconfig");
 };
 
 planHook.onchange = project.setHook;

@@ -79,10 +79,6 @@ section fieldset {
 }
 
 section fieldset select {
-	width: 20em;
-}
-
-section fieldset [name="severity"] {
 	width: auto;
 }
 
@@ -90,10 +86,8 @@ section fieldset [type="number"] {
 	width: 3em;
 }
 
-fieldset span,
-fieldset fieldset {
-	display: inline-block;
-	white-space: nowrap;
+fieldset input ~ a {
+	margin-left: 2em;
 }
 
 nav {
@@ -116,27 +110,35 @@ nav .curr {
 	border-bottom-color: #fff;
 }
 
-#eslint fieldset {
-	vertical-align: top;
-	overflow: hidden;
-	width: 27em;
-	height: 3em;
+fieldset .git .hg,
+fieldset .hg .git,
+fieldset .error {
+	display: none;
 }
 
-#eslint fieldset:hover {
-	position: relative;
-	overflow: visible;
+fieldset .hg .hg {
+	display: block;
 }
 
-#eslint fieldset:hover div {
-	margin: -2em;
-	padding: 2em;
-	box-shadow: 0 0 6px grey;
-	background: #fff;
+fieldset .git .git {
+	display: block;
 }
 
-#stylelint fieldset span,
-#stylelint fieldset select[name="value"] {
-	margin: 0 1em;
-	min-width: 20em;
+#hook,
+#eslint,
+#stylelint,
+#editorconfig {
+	background: url("../img/sourcetree.ico") no-repeat right top/64px auto;
+}
+
+#editorconfig {
+	background-image: url("../img/editorconfig.png");
+}
+
+#eslint {
+	background-image: url("../img/eslint.svg");
+}
+
+#stylelint {
+	background-image: url("../img/stylelint.png");
 }

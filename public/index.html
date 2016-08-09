@@ -32,6 +32,14 @@ document.addEventListener("DOMContentLoaded", function() {
 			<fieldset>
 				<legend>代码库钩子</legend>
 				<form id="hook">
+					<p class="git">
+						<input type="button" name="edit" value="编辑配置文件">
+						<a href="https://git-scm.com/book/zh/v2/%E8%87%AA%E5%AE%9A%E4%B9%89-Git-Git-%E9%92%A9%E5%AD%90" target="hook">帮助</a>
+					</p>
+					<p class="hg">
+						<input type="button" name="edit" value="编辑配置文件">
+						<a href="https://www.mercurial-scm.org/wiki/Hook" target="hook">帮助</a>
+					</p>
 					<p>
 						<label>
 							<input type="checkbox" checked id="hook-enable">
@@ -47,13 +55,13 @@ document.addEventListener("DOMContentLoaded", function() {
 					<p>
 						<label>
 							<input type="checkbox" checked id="hook-gui">
-							图形界面风格错误报告
+							图形界面错误报告
 						</label>
 					</p>
 				</form>
 			</fieldset>
 			<fieldset>
-				<legend>文件格式设置</legend>
+				<legend>EditorConfig</legend>
 				<form id="editorconfig">
 					<p>
 						<input type="button" name="edit" value="编辑配置文件">
