@@ -10,7 +10,16 @@
 		"es6": true
 	},
 	"rules": {
-		"no-console": "error"
+		"no-console": [
+			"error",
+			{
+				"allow": [
+					"info",
+					"warn",
+					"error"
+				]
+			}
+		]
 	},
 	"sourceType": "module"
 }

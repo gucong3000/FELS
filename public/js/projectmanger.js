@@ -2,16 +2,14 @@
 
 const path = require("path");
 const {
-	clipboard,
-	ipcRenderer,
 	remote,
-	shell,
 } = require("electron");
 const dialog = remote.dialog;
 const unifiedpath = remote.require("./unifiedpath");
+const Menu = remote.Menu;
 
-let seleProjects = document.querySelector("aside select");
-let wrap = document.querySelector("section");
+let seleProjects;
+
 let projectManger = {
 
 	/**
@@ -22,11 +20,11 @@ let projectManger = {
 		try {
 			data = JSON.parse(localStorage.getItem("fels-projects"));
 		} catch (ex) {
-
+			//
 		}
 		if (!data) {
 			data = {};
-			console.log("初始化数据");
+			console.info("初始化数据");
 			return data;
 		} else {
 			let newData = {};
@@ -64,11 +62,12 @@ let projectManger = {
 
 	/**
 	 * 添加项目
-	 * @param {String} projectPath 项目路径
+	 * @param {String}		projectPath 项目路径
+	 * @return {Boolean}	是否添加成功
 	 */
-	addProject: function(projectPath, data) {
+	addProject: function(projectPath) {
 		if (!projectManger.projects[projectPath]) {
-			projectManger.projects[projectPath] = data || {};
+			projectManger.projects[projectPath] = {};
 			return true;
 		} else {
 			return false;
@@ -127,6 +126,7 @@ let projectManger = {
 
 	/**
 	 * 初始化项目列列表
+	 * @param  {String} curr 要选中的项目路径
 	 */
 	initList: function(curr) {
 		let newOpts = Object.keys(projectManger.projects).sort().map((projectPath, index) => {
@@ -152,82 +152,41 @@ let projectManger = {
 		projectManger.addProject(projectPath);
 		require("./project").init(projectPath, projectManger.projects[projectPath]);
 	},
-};
-wrap.querySelector("nav").onclick = e => {
-	if (e.target.htmlFor) {
-		Array.from(wrap.querySelectorAll("nav label")).forEach(label => {
-			if (e.target !== label) {
-				label.classList.remove("curr");
+
+	init: function() {
+		let wrap = document.querySelector("section");
+		seleProjects = document.querySelector("aside select");
+
+		wrap.querySelector("nav").onclick = e => {
+			if (e.target.htmlFor) {
+				Array.from(wrap.querySelectorAll("nav label")).forEach(label => {
+					if (e.target !== label) {
+						label.classList.remove("curr");
+					}
+				});
+				e.target.classList.add("curr");
 			}
-		});
-		e.target.classList.add("curr");
+		};
+		seleProjects.onchange = e => {
+			projectManger.initProject(e.target.value);
+		};
+
+		window.addEventListener("beforeunload", projectManger.save, false);
+
+		projectManger.initList();
+		let listTpl = [{
+			label: "添加项目",
+			click: projectManger.add
+		}, {
+			label: "删除项目",
+			click: projectManger.remove
+		}];
+		let listMenu = Menu.buildFromTemplate(listTpl);
+		document.querySelector("aside").addEventListener("contextmenu", function() {
+			listMenu.items[1].enabled = seleProjects.selectedOptions.length > 0;
+			listMenu.popup(remote.getCurrentWindow());
+		}, false);
 	}
 };
-seleProjects.onchange = e => {
-	projectManger.initProject(e.target.value);
-};
-
-window.onbeforeunload = projectManger.save;
-
-const Menu = remote.Menu;
-
-let listTpl = [{
-	label: "添加项目",
-	click: projectManger.add
-}, {
-	label: "删除项目",
-	click: projectManger.remove
-}];
-
-let linkTpl = [{
-	label: "复制路径",
-	click: function() {
-		clipboard.writeText(path.normalize(document.activeElement.getAttribute("href")));
-	}
-}, {
-	label: "在浏览器中打开连接",
-	click: function() {
-		shell.openExternal(document.activeElement.href);
-	}
-}, {
-	label: "以默认打开方式打开文件",
-	click: function() {
-		shell.openItem(path.normalize(document.activeElement.getAttribute("href")));
-	}
-}, {
-	label: "打开文件所在文件夹",
-	click: function() {
-		shell.showItemInFolder(path.normalize(document.activeElement.getAttribute("href")));
-	}
-}];
-
-let listMenu = Menu.buildFromTemplate(listTpl);
-let linkMenu = Menu.buildFromTemplate(linkTpl);
-
-document.addEventListener("contextmenu", function(e) {
-	e.preventDefault();
-}, false);
-
-document.querySelector("aside").addEventListener("contextmenu", function() {
-	listMenu.items[1].enabled = seleProjects.selectedOptions.length > 0;
-	listMenu.popup(remote.getCurrentWindow());
-}, false);
-
-wrap.addEventListener("contextmenu", function(e) {
-	if (e.target.tagName === "A" && e.target.href) {
-
-		/*		let isUrl = /^https?:\/\//i.test(e.target.href);
-				listMenu.items[0].enabled = isUrl;
-				listMenu.items[1].enabled = isUrl;
-				listMenu.items[2].enabled = !isUrl;
-				listMenu.items[3].enabled = !isUrl;
-		*/
-		linkMenu.popup(remote.getCurrentWindow());
-	}
-}, false);
-
-projectManger.initList();
 
 module.exports = projectManger;
-
-ipcRenderer.send("project-ready", true);
