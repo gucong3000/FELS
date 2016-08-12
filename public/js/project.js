@@ -1,86 +1,41 @@
 "use strict";
 const path = require("path");
 const reporter = require("./reporter");
-const hook = require("./hook");
-const eslint = require("./eslint");
-const stylelint = require("./stylelint");
-const editorconfig = require("./editorconfig");
+const config = require("./config-util");
 const wrap = document.querySelector("section");
-const planHook = wrap.querySelector("#hook");
-const planStylelint = wrap.querySelector("#stylelint");
-const planEsint = document.querySelector("#eslint");
-const planEditorconfig = document.querySelector("#editorconfig");
 const {
 	shell,
 	remote,
 } = require("electron");
 
+// let initFns = ["hook", "editorconfig", "eslint", "stylelint"].map(initPlan);
+let initFns = ["hook", "editorconfig", "eslint", "stylelint"].map(initPlan);
 let project = {
 	init: function(projectPath, data) {
 		project.curr = data;
 		data.path = projectPath;
 		wrap.querySelector("h1").innerHTML = path.normalize(projectPath);
-		project.getHook();
-		editorconfig.init(data).then(project.setEditorconfig);
-		stylelint.init(data).then(project.setStylelint);
-		project.getReport();
-		project.setEslint(eslint.init(data));
 		remote.require("./getreptype")(projectPath)
 
 		.then(type => {
-			planHook.classList.remove("hg");
-			planHook.classList.remove("git");
-			planHook.classList.remove("error");
-			planHook.classList.add(type);
+			wrap.classList.remove("hg");
+			wrap.classList.remove("git");
+			wrap.classList.remove("error");
+			wrap.classList.add(type);
 		})
 
-		.catch(()=>{
-			planHook.classList.remove("hg");
-			planHook.classList.remove("git");
-			planHook.classList.add("error");
-		})
+		.catch(() => {
+			wrap.classList.remove("hg");
+			wrap.classList.remove("git");
+			wrap.classList.add("error");
+		});
+
+		project.getReport();
+		initFns.forEach(fn => fn(projectPath, data));
 	},
-	setEditorconfig: function(cfg) {
-		Array.from(planEditorconfig.elements).forEach(elem => {
-			if (elem.name && elem.name in cfg) {
-				if (elem.type === "checkbox") {
-					elem.checked = cfg[elem.name];
-				} else if (elem.type === "radio") {
-					elem.checked = elem.value === cfg[elem.name];
-				} else {
-					elem.value = cfg[elem.name];
-				}
-			}
-		})
-	},
-	setEslint: function(cfg) {
-		planEsint.querySelector("[name=\"env.es6\"]").checked = cfg.env.es6;
-		planEsint.querySelector("[name=\"env.browser\"]").checked = cfg.env.browser;
-		planEsint.querySelector("[name=\"env.node\"]").checked = cfg.env.node;
-	},
-	setStylelint: function(cfg) {
-		planStylelint.querySelector("[name=\"defaultSeverity\"]").value = cfg.defaultSeverity;
-	},
+
 	getReport: function() {
 		wrap.querySelector("#reporter+div").innerHTML = reporter.toHTML(project.curr.report, project.curr.path) || "无错误";
-	},
-	setHook: function() {
-		let hookConfig = project.curr.hook || {};
-		Array.from(planHook.querySelectorAll("[type=checkbox]")).forEach(elem => {
-			hookConfig[elem.id.replace(/^\w+-/, "")] = elem.checked;
-		});
-		hookConfig.base = project.curr.path;
-		hook.set(hookConfig);
-	},
-	getHook: function() {
-		let curr = project.curr;
-		return hook.get(curr.path).then(hookConfig => {
-			curr.hook = hookConfig;
-			Array.from(planHook.querySelectorAll("[type=checkbox]")).forEach(elem => {
-				elem.checked = hookConfig[elem.id.replace(/^\w+-/, "")];
-			});
-			return hookConfig;
-		});
 	},
 };
 
@@ -95,53 +50,82 @@ function getElemVal(elem) {
 		elem.focus();
 		throw elem.validationMessage;
 	}
-	if (elem.type === "checkbox") {
-		return elem.checked;
-	} else if (elem.type === "radio" && !!elem.checked) {
-		elem = elem.form.querySelector(`[name="${ elem.name }"]:checked`);
+	if (elem.tagName === "SELECT") {
+		return elem.value === "null" ? null : elem.value;
+	} else if (elem.type === "checkbox") {
+		if (elem.getAttribute("value") == null) {
+			return elem.checked;
+		} else {
+			return elem.checked ? elem.value : null;
+		}
+	} else if (elem.type === "radio") {
+		if (!elem.checked) {
+			elem = elem.form.querySelector(`[name="${ elem.name }"]:checked`);
+		}
 	}
 	return elem.value;
 }
 
-/**
- * 使用默认编辑器打开文件
- * @param  {String} subPath 文件的相对路径
- * @return {undefined}
- */
-function openFile(subPath) {
-	shell.openItem(path.join(project.curr.path, subPath));
+
+let rcPath = {
+	"hook": [".git/hooks/pre-commit", ".hg/hgrc"],
+	"editorconfig": [".editorconfig"],
+	"eslint": [".eslintrc.json"],
+	"stylelint": [".stylelintrc"],
 }
 
-planEsint.onchange = function(e) {
-	eslint.update(e.target.name, getElemVal(e.target));
-};
+/**
+ * 初始化各个配置模块
+ * @param  {String} 	name 模块名
+ * @return {Function}   项目初始化函数
+ */
+function initPlan(name) {
 
-planStylelint.onchange = function(e) {
-	stylelint.update(e.target.name, getElemVal(e.target));
-};
-planEditorconfig.onchange = function(e) {
-	editorconfig.update(e.target.name, getElemVal(e.target));
-};
+	let plan = wrap.querySelector("#" + name);
+	let rcProxy;
+	let currPath;
 
-planHook.querySelector(".hg [name=edit]").onclick = function() {
-	openFile(".hg/hgrc");
-};
+	plan.onchange = function(e) {
+		rcProxy.set(e.target.name, getElemVal(e.target));
+		rcProxy.save();
+	}
 
-planHook.querySelector(".git [name=edit]").onclick = function() {
-	openFile(".git/hooks/pre-commit");
-};
+	Array.from(plan.querySelectorAll("[name=edit]")).forEach((btn, i) => {
+		btn.onclick = function() {
+			shell.openItem(path.join(currPath, rcPath[name][i]));
+		}
+	});
 
-planEsint.querySelector("[name=edit]").onclick = function() {
-	openFile(".eslintrc.json");
-};
+	return function(projectPath) {
+		currPath = projectPath;
+		plan.reset();
 
-planStylelint.querySelector("[name=edit]").onclick = function() {
-	openFile(".stylelintrc");
-};
+		config.proxy(name, projectPath)
 
-planEditorconfig.querySelector("[name=edit]").onclick = function() {
-	openFile(".editorconfig");
-};
+		.then(config => {
+			rcProxy = config;
+			Array.from(plan.elements).forEach(elem => {
+				if (elem.name && elem.type !== "button") {
+					let value;
+					value = config.get(elem.name);
+					if (typeof value === "undefined") {
+						return;
+					}
+					if (elem.type === "radio") {
+						elem.checked = elem.value === String(value);
+					} else if (elem.type === "checkbox") {
+						if (elem.getAttribute("value") == null) {
+							elem.checked = !!value;
+						} else {
+							elem.checked = elem.value === String(value);
+						}
+					} else {
+						elem.value = value;
+					}
+				}
+			});
+		});
+	};
+}
 
-planHook.onchange = project.setHook;
 module.exports = project;

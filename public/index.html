@@ -42,19 +42,19 @@ document.addEventListener("DOMContentLoaded", function() {
 					</p>
 					<p>
 						<label>
-							<input type="checkbox" checked id="hook-enable">
+							<input type="checkbox" checked name="enable">
 							开启
 						</label>
 					</p>
 					<p>
 						<label>
-							<input type="checkbox" checked id="hook-color">
+							<input type="checkbox" checked name="color">
 							控制台彩色
 						</label>
 					</p>
 					<p>
 						<label>
-							<input type="checkbox" checked id="hook-gui">
+							<input type="checkbox" checked name="gui">
 							图形界面错误报告
 						</label>
 					</p>
@@ -69,20 +69,20 @@ document.addEventListener("DOMContentLoaded", function() {
 					</p>
 					<p>
 						缩进方式：
-						<input type="radio" name="indent_style" value="tab">
+						<input type="radio" name="indent_style" value="tab" checked>
 						tab缩进
 						<input type="radio" name="indent_style" value="space">
 						<input required type="number" min="2" step="2" max="8" name="indent_size" value="4">个空格缩进
 					</p>
 					<p>
 						<label>
-							<input type="checkbox" name="trim_trailing_whitespace">
+							<input type="checkbox" name="trim_trailing_whitespace" checked>
 							去除行尾多余的空格
 						</label>
 					</p>
 					<p>
 						<label>
-							<input type="checkbox" name="insert_final_newline">
+							<input type="checkbox" name="insert_final_newline" checked>
 							文件结尾插入空行
 						</label>
 					</p>
@@ -113,7 +113,7 @@ document.addEventListener("DOMContentLoaded", function() {
 					</p>
 					<p>
 						<label>
-							<input type="checkbox" name="env.browser">
+							<input type="checkbox" name="env.browser" checked>
 							浏览器环境
 						</label>
 					</p>
@@ -123,6 +123,30 @@ document.addEventListener("DOMContentLoaded", function() {
 							node环境
 						</label>
 					</p>
+					<fieldset>
+						<legend>强制使用有效的 JSDoc 注释</legend>
+						<label>
+							<select name="rules.valid-jsdoc[0]">
+								<option value="off">关闭</option>
+								<option value="warn" checked>警告</option>
+								<option value="error">错误</option>
+							</select>
+						</label>
+						<p>
+							<input type="checkbox" name="rules.valid-jsdoc[1].requireReturn">
+							必须写 @return 或 @returns
+						</p>
+					</fieldset>
+					<fieldset>
+						<legend>禁用 console</legend>
+						<label>
+							<select name="rules.no-console[0]">
+								<option value="off">关闭</option>
+								<option value="warn">警告</option>
+								<option value="error" checked>错误</option>
+							</select>
+						</label>
+					</fieldset>
 				</form>
 			</fieldset>
 			<fieldset>

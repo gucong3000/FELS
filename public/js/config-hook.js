@@ -10,21 +10,21 @@ let hook = {
 	get: function(baseDir) {
 		const getreptype = remote.require("./getreptype");
 		const path = require("path");
-		const fs = require("fs-extra-async");
+		const unit = require("./config-util");
 		let hookPath;
 		return getreptype(baseDir)
 
 		.then(type => {
 			if (type === "git") {
 				hookPath = path.join(baseDir, ".git/hooks/pre-commit");
-				return fs.readFileAsync(hookPath)
+				return unit.readFileAsync(hookPath)
 					.then(contents => contents.toString().replace(/^\s*#.+?\n/, ""));
 			} else if (type === "hg") {
 				let ini = require("ini");
 
 				// 读取hg配置文件
 				hookPath = path.join(baseDir, ".hg/hgrc");
-				return fs.readFileAsync(hookPath)
+				return unit.readFileAsync(hookPath)
 					.then(contents => ini.parse(contents.toString()).hooks["precommit.fels"]);
 			} else {
 				throw baseDir;
@@ -48,7 +48,10 @@ let hook = {
 			.then(() => config);
 		});
 	},
-	set: remote.require("./task-addhooks")
+	set: (base, config)=>{
+		config.base = base;
+		remote.require("./task-addhooks")(config)
+	}
 };
 
 module.exports = hook;

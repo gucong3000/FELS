@@ -1,5 +1,5 @@
 {
-	"defaultSeverity": "error",
+	"defaultSeverity": "warning",
 	"extends": [
 		"stylelint-config-standard"
 	]

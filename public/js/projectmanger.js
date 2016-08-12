@@ -2,10 +2,10 @@
 
 const path = require("path");
 const {
-	shell,
-	remote,
+	clipboard,
 	ipcRenderer,
-
+	remote,
+	shell,
 } = require("electron");
 const dialog = remote.dialog;
 const unifiedpath = remote.require("./unifiedpath");
@@ -180,9 +180,9 @@ let listTpl = [{
 }];
 
 let linkTpl = [{
-	label: "新窗口中打开连接",
+	label: "复制路径",
 	click: function() {
-		window.open(document.activeElement.href);
+		clipboard.writeText(path.normalize(document.activeElement.getAttribute("href")));
 	}
 }, {
 	label: "在浏览器中打开连接",

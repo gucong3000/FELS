@@ -273,6 +273,7 @@ function notify() {
 /**
  * 代码美化，调用opts.beautify函数美化代码后，如果代码产生变化，则修改源代码
  * @param  {Stream}			stream				包含文件的数据流
+ * @param  {Object}			opts				参数
  * @param  {String}			[opts.rcName]		配置文件文件名，供rcloader组件加载配置用
  * @param  {Function}		[opts.beautify]		代码美化函数，参数三个，{String}旧代码、{Object}rcloader找到的配置、{vinyl}文件对象
  * @param  {String}			[opts.title]		代码美化的行为的名字，用于气泡提示的标题和报错信息中
@@ -618,7 +619,7 @@ function fileUploader(configs) {
 
 	/**
 	 * API 方式文件上传
-	 * @param  {Vinyl} file https://github.com/gulpjs/vinyl
+	 * @param  {Vinyl} fileVinyl https://github.com/gulpjs/vinyl
 	 * @return {Promise} 异步操作对象，Promise格式
 	 */
 	return function(fileVinyl) {
@@ -771,9 +772,9 @@ function saveStatus(files, dir, tag) {
 
 /**
  * 将子路径转为文件对象数组
- * @param  {Array[String]} 	paths 文件相对路径数组
- * @param  {String}      	文件根目录
- * @return Promise     		Promise对象的返回值为 {Vinyl[]} 数组 https://github.com/gulpjs/vinyl
+ * @param  {Array}		paths	[String] paths 文件相对路径数组
+ * @param  {String}		baseDir	文件根目录
+ * @return {Promise}			Promise对象的返回值为 {Vinyl[]} 数组 https://github.com/gulpjs/vinyl
  */
 function path2vinyl(paths, baseDir) {
 
@@ -803,6 +804,9 @@ function path2vinyl(paths, baseDir) {
 
 /**
  * 获得代码库中的新文件
+ * @param  {[type]} 	dir		代码库路径
+ * @param  {[String]}	tag		代码库标记
+ * @return {Array}     	[vinyl] 格式的数组
  */
 function getNewFiles(dir, tag) {
 	dir = path.resolve(dir);
@@ -1027,3 +1031,7 @@ gulp.task("hook", () => require("./lib/task-addhooks")());
 gulp.task("precommit", require("./lib/task-precommit"));
 
 gulp.task("default", require("./lib/task-default"));
+
+process.on("uncaughtException", (error) => {
+	console.error(error);
+});

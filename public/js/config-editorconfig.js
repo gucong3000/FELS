@@ -2,7 +2,7 @@
 // const fs = require("fs-extra-async");
 const path = require("path");
 const ini = require("editorconfig/lib/ini");
-const fs = require("fs-extra-async");
+const unit = require("./config-util");
 
 const defaultConfig = {
 	charset: "utf-8",
@@ -19,25 +19,21 @@ const defaultConfig = {
  * @return {Object}        转换后的对象
  */
 function parseString(config) {
-	config = ini.parseString(config).filter(block => block[0] === "*").map(block => block[1]);
+	config = ini.parseString(config.toString()).filter(block => block[0] === "*").map(block => block[1]);
 	config.unshift({});
 	config.unshift(defaultConfig);
 	return Object.assign.apply(Object, config);
 }
 
 let editorconfig = {
-	init: function(data) {
-		editorconfig.curr = data;
-		return editorconfig.get();
-	},
-	get: function() {
-		let rcPath = path.join(editorconfig.curr.path, ".editorconfig");
-		return fs.readFileAsync(rcPath)
+	get: function(baseDir) {
+		let rcPath = path.join(baseDir, ".editorconfig");
+		return unit.readFileAsync(rcPath)
 
-		.then(contents => editorconfig.curr.editorconfig = parseString(contents.toString()))
+		.then(parseString)
 
 		.catch(() => {
-			fs.writeFileAsync(rcPath, `# This file is for unifying the coding style for different editors and IDEs
+			unit.writeFileAsync(rcPath, `# This file is for unifying the coding style for different editors and IDEs
 # editorconfig.org
 
 root = true
@@ -51,17 +47,15 @@ trim_trailing_whitespace = true`)
 			return defaultConfig;
 		});
 	},
-	update: function(key, value) {
-		let rcPath = path.join(editorconfig.curr.path, ".editorconfig");
-		let config = editorconfig.curr.editorconfig;
-		config[key] = value;
+	set: function(baseDir, config) {
+		let rcPath = path.join(baseDir, ".editorconfig");
 		let keys = Object.keys(config).sort();
 		if (/^tab$/i.test(config.indent_style)) {
 			keys = keys.filter(key => !/^indent_size$/i.test(key))
 		}
 		config = keys.map(key => `${ key } = ${ config[key] }`).join("\n");
 
-		return fs.readFileAsync(rcPath)
+		return unit.readFileAsync(rcPath)
 
 		.then(contents => {
 			return contents.toString().replace(/(\[\s*\*\s*\]\s*[\r\n]+)[^\[\]]+/, `$1${ config }\n\n`);
@@ -71,7 +65,7 @@ trim_trailing_whitespace = true`)
 			return `[*]\n${ config }\n\n`;
 		})
 
-		.then(contents => fs.writeFileAsync(rcPath, contents));
+		.then(contents => unit.writeFileAsync(rcPath, contents));
 	}
 };
 

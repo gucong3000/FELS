@@ -1,0 +1,16 @@
+{
+	"ecmaFeatures": {
+		"globalReturn": false,
+		"impliedStrict": true,
+		"jsx": true
+	},
+	"ecmaVersion": 7,
+	"env": {
+		"browser": true,
+		"es6": true
+	},
+	"rules": {
+		"no-console": "error"
+	},
+	"sourceType": "module"
+}

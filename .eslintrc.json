@@ -13,9 +13,10 @@
 	"extends": [
 		"eslint:recommended"
 	],
+	"root": true,
 	"rules": {
 		"no-console": [
-			"warn",
+			"off",
 			{
 				"allow": [
 					"warn",
@@ -23,8 +24,12 @@
 				]
 			}
 		],
-		"require-jsdoc": "warn",
-		"valid-jsdoc": "warn"
+		"valid-jsdoc": [
+			"error",
+			{
+				"requireReturn": false
+			}
+		]
 	},
 	"sourceType": "module"
 }

@@ -110,9 +110,10 @@ nav .curr {
 	border-bottom-color: #fff;
 }
 
-fieldset .git .hg,
-fieldset .hg .git,
-fieldset .error {
+.git .hg,
+.hg .git,
+.error .hg,
+.error .git {
 	display: none;
 }
 
@@ -141,4 +142,12 @@ fieldset .git .git {
 
 #stylelint {
 	background-image: url("../img/stylelint.png");
+}
+
+.warn span {
+	color: darkorange;
+}
+
+.error span {
+	color: red;
 }
