@@ -168,7 +168,7 @@ let util = {
 			}
 		})
 
-		.then(cfg => cfg || cfg)
+		.then(cfg => cfg || {})
 
 		.catch(() => {});
 	},
