@@ -8,31 +8,20 @@ const {
 
 const dialog = remote.dialog;
 const Menu = remote.Menu;
-
+const url = require("url");
 const path = require("path");
 const child_process = require("child_process");
 
 // 获取当前活动状态的链接的href中的文件路径
-function getPath() {
-	return path.normalize(document.activeElement.getAttribute("href"));
-}
+function getPath(link) {
 
-function openInEditor() {
-	let editor = app.get("editor");
-	if (editor) {
-		try {
-			child_process.execFile(editor, [getPath()]);
-		} catch (ex) {
-			try {
-				child_process.exec([editor, getPath()].map(arg => /\s/.test(arg) ? JSON.stringify(arg) : arg).join(" "))
-			} catch (ex) {
-				dialog.showErrorBox("打开编辑器时出错", editor + "\n" + ex.stack || ex.message || ex);
-			}
-		}
-	} else {
-		shell.openItem(getPath());
+	let uri = url.parse((link || document.activeElement).href);
+
+	if (uri.protocol === "file:") {
+		return path.normalize(uri.path.replace(/^\/(\w\:)/, "$1"));
 	}
 }
+
 
 let app = {
 	data: (() => {
@@ -54,7 +43,7 @@ let app = {
 		let linkTpl = [{
 			label: "新窗口中打开连接",
 			click: function() {
-				window.open(document.activeElement.href);
+				window.open(document.activeElement.href, document.activeElement.target);
 			}
 		}, {
 			label: "在浏览器中打开连接",
@@ -70,7 +59,9 @@ let app = {
 			}
 		}, {
 			label: "在编辑器中打开",
-			click: openInEditor
+			click: function() {
+				app.openInEditor();
+			}
 		}, {
 			label: "打开文件所在文件夹",
 			click: function() {
@@ -87,25 +78,19 @@ let app = {
 
 		wrap.addEventListener("contextmenu", function(e) {
 			if (e.target.tagName === "A" && e.target.href) {
-				let menu;
-				if (/^\w+\:\/\//.test(e.target.getAttribute("href"))) {
-					menu = linkMenu;
-				} else {
-					menu = fileMenu;
-				}
+				let menu = getPath(e.target) ? fileMenu : linkMenu;
 				menu.popup(remote.getCurrentWindow());
 			}
 		}, false);
+
 		wrap.addEventListener("click", function(e) {
 			if (e.target.tagName === "A" && e.target.href) {
-				if (/^(\w+)\:\/\//.test(e.target.getAttribute("href"))) {
-					if (/https?/i.test(RegExp.$1)) {
-						e.preventDefault();
-						shell.openExternal(e.target.href);
-					}
+				e.preventDefault();
+				let filePath = getPath(e.target);
+				if (filePath) {
+					app.openInEditor(filePath);
 				} else {
-					e.preventDefault();
-					openInEditor();
+					shell.openExternal(e.target.href);
 				}
 			}
 		}, false);
@@ -124,7 +109,27 @@ let app = {
 	},
 	setEditor: function(path) {
 		app.set("editor", path && path[0]);
-	}
+	},
+	openInEditor: function(filePath) {
+		filePath = filePath || getPath();
+		if (!filePath) {
+			throw new Error("文件路径不能为空");
+		}
+		let editor = app.get("editor");
+		if (editor) {
+			try {
+				child_process.execFile(editor, [filePath]);
+			} catch (ex) {
+				try {
+					child_process.exec([editor, filePath]);
+				} catch (ex) {
+					dialog.showErrorBox("打开编辑器时出错", editor + "\n" + ex.stack || ex.message || ex);
+				}
+			}
+		} else {
+			shell.openItem(filePath);
+		}
+	},
 }
 
 document.addEventListener("DOMContentLoaded", app.init);

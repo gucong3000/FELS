@@ -2,13 +2,19 @@
 const path = require("path");
 const reporter = require("./reporter");
 const config = require("./config-util");
+const app = require("./app");
 const wrap = document.querySelector("section");
 const {
-	shell,
 	remote,
 } = require("electron");
 
-// let initFns = ["hook", "editorconfig", "eslint", "stylelint"].map(initPlan);
+const rcPath = {
+	"hook": [".git/hooks/pre-commit", ".hg/hgrc"],
+	"editorconfig": [".editorconfig"],
+	"eslint": [".eslintrc.json"],
+	"stylelint": [".stylelintrc"],
+};
+
 let initFns = ["hook", "editorconfig", "eslint", "stylelint"].map(initPlan);
 let project = {
 	init: function(projectPath, data) {
@@ -66,14 +72,6 @@ function getElemVal(elem) {
 	return elem.value;
 }
 
-
-let rcPath = {
-	"hook": [".git/hooks/pre-commit", ".hg/hgrc"],
-	"editorconfig": [".editorconfig"],
-	"eslint": [".eslintrc.json"],
-	"stylelint": [".stylelintrc"],
-}
-
 /**
  * 初始化各个配置模块
  * @param  {String} 	name 模块名
@@ -92,7 +90,7 @@ function initPlan(name) {
 
 	Array.from(plan.querySelectorAll("[name=edit]")).forEach((btn, i) => {
 		btn.onclick = function() {
-			shell.openItem(path.join(currPath, rcPath[name][i]));
+			app.openInEditor(path.join(currPath, rcPath[name][i]));
 		}
 	});
 
