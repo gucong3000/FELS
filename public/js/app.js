@@ -11,6 +11,7 @@ const Menu = remote.Menu;
 const url = require("url");
 const path = require("path");
 const child_process = require("child_process");
+const projectmanger = require("./projectmanger");
 
 // 获取当前活动状态的链接的href中的文件路径
 function getPath(link) {
@@ -21,7 +22,6 @@ function getPath(link) {
 		return path.normalize(uri.path.replace(/^\/(\w\:)/, "$1"));
 	}
 }
-
 
 let app = {
 	data: (() => {
@@ -34,11 +34,11 @@ let app = {
 		return data || {};
 	})(),
 	init: function() {
-		app.initContextMenu();
-		require("./projectmanger").init();
+		app.initweb();
+		projectmanger.init();
 		ipcRenderer.send("project-ready", true);
 	},
-	initContextMenu: function() {
+	initweb: function() {
 		let wrap = document.querySelector("section");
 		let linkTpl = [{
 			label: "新窗口中打开连接",
@@ -96,6 +96,61 @@ let app = {
 		}, false);
 
 		window.addEventListener("beforeunload", app.save, false);
+
+		let editorCmd = wrap.querySelector("[name=\"editor-cmd\"]");
+
+		editorCmd.value = app.get("editor") || "";
+
+		wrap.querySelector("[name=\"editor-pick\"]").onclick = function() {
+			let defaultPath;
+			if (/^("|')(.+?)\1/.test(editorCmd.value)) {
+				defaultPath = path.dirname(RegExp.$2);
+			} else if (/^(\S+)/.test(editorCmd.value)) {
+				defaultPath = path.dirname(RegExp.$1);
+			} else {
+				defaultPath = process.env.ProgramFiles || "/"
+			}
+
+			dialog.showOpenDialog(remote.getCurrentWindow(), {
+				properties: ["openFile"],
+				defaultPath: defaultPath,
+				filters: [{
+					name: '可执行文件',
+					extensions: process.platform === "win32" ? ["exe", "com", "bat", "cmd"] : ["*"]
+				}]
+			}, path => {
+				let cmd;
+				if (path && path[0]) {
+					path = path[0].replace(/\bsublime_text(\.exe)?$/, "subl$1");
+
+					let type = path.match(/(\w+)(?:\.\w+)?$/);
+					if (/\s/.test(path)) {
+						cmd = [`"${ path }"`];
+					} else {
+						cmd = [path];
+					}
+					if (type && type[1]) {
+						type = type[1].toLocaleLowerCase();
+						if (type === "subl") {
+							cmd.push("--add", "\"%V\"", "\"%1\"");
+						} else if (type === "atom") {
+							cmd.push("\"%V\"", "\"%1\"");
+						} else if (type === "brackets") {
+							cmd.push("\"%1\"", "&&", "%0", "\"%V\"");
+							// } else if (type === "code") {
+							// cmd.push("\"%1\"", "&&", "%0", "\"%V\"");
+						}
+					}
+					cmd = cmd.join(" ");
+					editorCmd.value = cmd;
+					app.set("editor", cmd);
+				}
+			});
+		};
+
+		editorCmd.onchange = function() {
+			app.set("editor", editorCmd.value);
+		}
 	},
 	get: function(key) {
 		return app.data[key];
@@ -107,9 +162,6 @@ let app = {
 	save: function() {
 		localStorage.setItem("fels-config", JSON.stringify(app.data));
 	},
-	setEditor: function(path) {
-		app.set("editor", path && path[0]);
-	},
 	openInEditor: function(filePath) {
 		filePath = filePath || getPath();
 		if (!filePath) {
@@ -117,19 +169,36 @@ let app = {
 		}
 		let editor = app.get("editor");
 		if (editor) {
-			try {
-				child_process.execFile(editor, [filePath]);
-			} catch (ex) {
-				try {
-					child_process.exec([editor, filePath]);
-				} catch (ex) {
-					dialog.showErrorBox("打开编辑器时出错", editor + "\n" + ex.stack || ex.message || ex);
-				}
+			if (/%1/.test(editor)) {
+				editor = editor
+					.replace(/%0/g, s => {
+						if (/^(\S+)/.test(editor) || /^(("|').+?\2)/.test(editor)) {
+							return RegExp.$1;
+						} else {
+							return s;
+						}
+					})
+					.replace(/%1/g, filePath)
+					.replace(/%V/g, s => document.querySelector("aside select").value || s)
+				app.nohup(editor);
+			} else {
+				app.nohup(`${ editor } "${ filePath }"`);
 			}
 		} else {
 			shell.openItem(filePath);
 		}
 	},
+	nohup: function(cmd) {
+		cmd = "nohup" + " " + cmd.replace(/\s*(\&\&|\|\|)\s*/g, " $1 nohup ");
+		// cmd += process.platform === "win32" ? ">NUL 1>NUL" : ">/dev/null 2>&1 &";
+		try {
+			child_process.exec(cmd, {
+				timeout: 6000,
+			});
+		} catch (ex) {
+			dialog.showErrorBox("打开外部命令时出错", cmd + "\n" + ex.stack || ex.message || ex);
+		}
+	}
 }
 
 document.addEventListener("DOMContentLoaded", app.init);

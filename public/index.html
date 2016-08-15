@@ -21,11 +21,12 @@ require("./js/app");
 		<h1></h1>
 		<nav>
 			<label for="reporter" class="curr">错误报告</label>
-			<label for="config">项目配置</label>
+			<label for="proj-config">项目配置</label>
+			<label for="fels-config">全局配置</label>
 		</nav>
 		<input type="radio" checked id="reporter" name="tabs">
 		<div>无错误</div>
-		<input type="radio" id="config" name="tabs">
+		<input type="radio" id="proj-config" name="tabs">
 		<div>
 			<fieldset>
 				<legend>代码库钩子</legend>
@@ -165,6 +166,16 @@ require("./js/app");
 					</p>
 				</form>
 			</fieldset>
+		</div>
+		<input type="radio" id="fels-config" name="tabs">
+		<div>
+			<p>
+				<label>
+					编辑器配置：
+					<input type="text" name="editor-cmd">
+					<input type="button" name="editor-pick" value="…">
+				</label>
+			</p>
 		</div>
 	</section>
 </body>

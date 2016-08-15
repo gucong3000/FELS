@@ -151,3 +151,7 @@ fieldset .git .git {
 .error span {
 	color: red;
 }
+
+[name="editor-cmd"] {
+	width: 30em;
+}
