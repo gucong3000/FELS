@@ -99,57 +99,68 @@ let app = {
 
 		let editorCmd = wrap.querySelector("[name=\"editor-cmd\"]");
 
-		editorCmd.value = app.get("editor") || "";
+		function setEditorCmd(cmd) {
+			app.set("editor", cmd.length > 1 ? cmd : cmd[0]);
+			if (Array.isArray(cmd)) {
+				cmd = cmd.map(arg => /\s/.test(arg) ? `"${ arg }"` : arg).join(" ");
+			} else if (!cmd) {
+				cmd = "";
+			}
+
+			if (editorCmd.value !== cmd) {
+				editorCmd.value = cmd;
+			}
+		}
+
+		setEditorCmd(app.get("editor"));
 
 		wrap.querySelector("[name=\"editor-pick\"]").onclick = function() {
-			let defaultPath;
-			if (/^("|')(.+?)\1/.test(editorCmd.value)) {
-				defaultPath = path.dirname(RegExp.$2);
-			} else if (/^(\S+)/.test(editorCmd.value)) {
-				defaultPath = path.dirname(RegExp.$1);
+			let dir = app.get("editor");
+
+			Array.isArray(dir) ? dir[0] : dir;
+
+			if (dir) {
+				dir = path.dirname(dir);
+			} else if (process.platform === "win32") {
+				dir = process.env.ProgramFiles;
 			} else {
-				defaultPath = process.env.ProgramFiles || "/"
+				dir = "/usr/bin/"
 			}
 
 			dialog.showOpenDialog(remote.getCurrentWindow(), {
 				properties: ["openFile"],
-				defaultPath: defaultPath,
+				defaultPath: dir,
 				filters: [{
-					name: '可执行文件',
+					name: "可执行文件",
 					extensions: process.platform === "win32" ? ["exe", "com", "bat", "cmd"] : ["*"]
 				}]
-			}, path => {
-				let cmd;
-				if (path && path[0]) {
-					path = path[0].replace(/\bsublime_text(\.exe)?$/, "subl$1");
+			}, cmd => {
+				if (cmd) {
+					cmd[0] = cmd[0]
+						.replace(/([\/\\])sublime_text(\.exe)?$/, "$1subl$2")
+						.replace(/\\command\\brackets\.bat$/, "\\Brackets.exe");
 
-					let type = path.match(/(\w+)(?:\.\w+)?$/);
-					if (/\s/.test(path)) {
-						cmd = [`"${ path }"`];
-					} else {
-						cmd = [path];
-					}
+					let type = cmd[0].match(/(\w+)(?:\.\w+)?$/);
 					if (type && type[1]) {
 						type = type[1].toLocaleLowerCase();
 						if (type === "subl") {
-							cmd.push("--add", "\"%V\"", "\"%1\"");
-						} else if (type === "atom") {
-							cmd.push("\"%V\"", "\"%1\"");
-						} else if (type === "brackets") {
-							cmd.push("\"%1\"", "&&", "%0", "\"%V\"");
-							// } else if (type === "code") {
-							// cmd.push("\"%1\"", "&&", "%0", "\"%V\"");
+							cmd.push("--add", "%V", "%1");
+						} else if (type === "atom" || type === "brackets") {
+							cmd.push("%1", "%V");
 						}
 					}
-					cmd = cmd.join(" ");
-					editorCmd.value = cmd;
-					app.set("editor", cmd);
+					setEditorCmd(cmd);
 				}
 			});
 		};
 
 		editorCmd.onchange = function() {
-			app.set("editor", editorCmd.value);
+			let args = [];
+			editorCmd.value.replace(/(?:('|")(.+?)\1|\S+)/g, (s, $1, val) => {
+				args.push(val || s);
+			});
+
+			setEditorCmd(args);
 		}
 	},
 	get: function(key) {
@@ -163,40 +174,106 @@ let app = {
 		localStorage.setItem("fels-config", JSON.stringify(app.data));
 	},
 	openInEditor: function(filePath) {
-		filePath = filePath || getPath();
 		if (!filePath) {
-			throw new Error("文件路径不能为空");
+			filePath = getPath();
 		}
+
 		let editor = app.get("editor");
 		if (editor) {
-			if (/%1/.test(editor)) {
-				editor = editor
-					.replace(/%0/g, s => {
-						if (/^(\S+)/.test(editor) || /^(("|').+?\2)/.test(editor)) {
-							return RegExp.$1;
-						} else {
-							return s;
-						}
-					})
-					.replace(/%1/g, filePath)
-					.replace(/%V/g, s => document.querySelector("aside select").value || s)
-				app.nohup(editor);
+			if (Array.isArray(editor)) {
+				let hasFile;
+
+				let args = editor.slice(1).map(arg => {
+					let newArg;
+					if (arg === "%1") {
+						hasFile = true;
+						newArg = filePath;
+					} else if (arg === "%V") {
+						newArg = document.querySelector("aside select").value;
+					}
+					return newArg ? path.normalize(newArg) : arg
+				});
+
+				if (!hasFile) {
+					args.push(filePath);
+				}
+				app.spawn(editor[0], args);
 			} else {
-				app.nohup(`${ editor } "${ filePath }"`);
+				app.spawn(editor, [filePath]);
 			}
 		} else {
 			shell.openItem(filePath);
 		}
 	},
-	nohup: function(cmd) {
-		cmd = "nohup" + " " + cmd.replace(/\s*(\&\&|\|\|)\s*/g, " $1 nohup ");
-		// cmd += process.platform === "win32" ? ">NUL 1>NUL" : ">/dev/null 2>&1 &";
-		try {
-			child_process.exec(cmd, {
-				timeout: 6000,
-			});
-		} catch (ex) {
-			dialog.showErrorBox("打开外部命令时出错", cmd + "\n" + ex.stack || ex.message || ex);
+	spawn: function(command, args) {
+		command = app.which(command) || command;
+		command = app.readbat(command) || command;
+		let child = child_process.spawn(command, args, {
+			detached: true,
+			stdio: "ignore"
+		});
+		child.on("error", function(ex) {
+			dialog.showErrorBox("打开外部命令时出错", command + " " + args.join(" ") + "\n" + ex.stack || ex.message || ex);
+		});
+		child.unref();
+	},
+	which: function(filePath) {
+		if (!path.isAbsolute(filePath)) {
+			let checkExt = extChecker(filePath);
+			let child = child_process.spawnSync(process.platform === "win32" ? "where" : "which", [filePath]);
+			if (!child.status && child.stdout.toString().trim().split(/\r?\n/g).some(stdout => {
+					if (stdout && checkExt(stdout)) {
+						filePath = stdout;
+						return true;
+					}
+				})) {
+				return filePath;
+			}
+		}
+	},
+	readbat: function(filePath, contents) {
+		if (/\.(cmd|bat)$/i.test(filePath)) {
+			const fs = require("fs");
+			if (!contents) {
+				try {
+					contents = fs.readFileSync(filePath);
+				} catch (ex) {
+					//
+				}
+			}
+
+			contents = contents.toString();
+
+			if (contents && /(?:^|\r\n)\s*(?:start\s+)?(?:("|')(.+?)\1|(\S+))\s+%\*\s*(?:\r\n|$)/ig.test(contents)) {
+				let dir = path.dirname(filePath);
+				filePath = RegExp.$2 || RegExp.$3;
+				if (/%~dp0/g.test(filePath)) {
+					filePath = path.normalize(filePath.replace(/%~dp0/g, dir));
+				} else {
+					filePath = path.join(dir, filePath);
+				}
+
+				try {
+					fs.accessSync(filePath)
+				} catch (ex) {
+					return;
+				}
+
+				return app.readbat(filePath) || filePath;
+			}
+		}
+	}
+}
+
+function extChecker(filePath) {
+	if (process.platform === "win32" && !/\.\w+$/.test(filePath)) {
+		let regExt = new RegExp("\\.(?:" + process.env.PATHEXT.split(/\s*;\s*/).map(ext => ext.replace(/^\W+/, "")).join("|") + ")$", "i");
+		return function(filePath) {
+			return regExt.test(filePath);
+		}
+	} else {
+		return function() {
+			return true;
 		}
 	}
 }
