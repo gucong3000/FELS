@@ -117,7 +117,7 @@ let app = {
 		wrap.querySelector("[name=\"editor-pick\"]").onclick = function() {
 			let dir = app.get("editor");
 
-			Array.isArray(dir) ? dir[0] : dir;
+			dir = Array.isArray(dir) ? dir[0] : dir;
 
 			if (dir) {
 				dir = path.dirname(dir);
