@@ -100,7 +100,9 @@ let app = {
 		let editorCmd = wrap.querySelector("[name=\"editor-cmd\"]");
 
 		function setEditorCmd(cmd) {
-			app.set("editor", cmd.length > 1 ? cmd : cmd[0]);
+			if (cmd) {
+				app.set("editor", cmd.length > 1 ? cmd : cmd[0]);
+			}
 			if (Array.isArray(cmd)) {
 				cmd = cmd.map(arg => /\s/.test(arg) ? `"${ arg }"` : arg).join(" ");
 			} else if (!cmd) {
