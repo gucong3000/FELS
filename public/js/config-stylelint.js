@@ -22,7 +22,9 @@ function fixCfg(cfg) {
 let stylelint = {
 	get: function(baseDir) {
 		return Promise.all([
-			unit.readRcAsync(path.join(baseDir, "package.json")).then(pkg => pkg.stylelint || {}),
+			unit.readRcAsync(path.join(baseDir, "package.json")).then(pkg => pkg.stylelint || {}).catch(() => {
+				return {};
+			}),
 			unit.readRcAsync(path.join(baseDir, ".stylelintrc")),
 			unit.readRcAsync(path.join(baseDir, "stylelint.config.js")),
 		]).then(cfgs => Object.assign.apply(Object, cfgs))

@@ -49,7 +49,9 @@ function fixCfg(cfg) {
 let eslint = {
 	get: function(baseDir) {
 		return Promise.all([
-			unit.readRcAsync(path.join(baseDir, "package.json")).then(pkg => pkg.eslintConfig || {}),
+			unit.readRcAsync(path.join(baseDir, "package.json")).then(pkg => pkg.eslintConfig || {}).catch(() => {
+				return {};
+			}),
 			unit.readRcAsync(path.join(baseDir, ".eslintrc.json")),
 			unit.readRcAsync(path.join(baseDir, ".eslintrc.js")),
 			unit.readRcAsync(path.join(baseDir, ".eslintrc")),

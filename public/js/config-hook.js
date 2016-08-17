@@ -43,7 +43,7 @@ let hook = {
 				color: true,
 				gui: true,
 			};
-			return hook.set(config)
+			return remote.require("./task-addhooks")(config)
 
 			.then(() => config);
 		});
