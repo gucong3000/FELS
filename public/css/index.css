@@ -83,7 +83,7 @@ section fieldset select {
 }
 
 section fieldset [type="number"] {
-	width: 3em;
+	width: 4em;
 }
 
 fieldset input ~ a {
