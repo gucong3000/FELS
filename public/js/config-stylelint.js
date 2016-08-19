@@ -1,5 +1,5 @@
 "use strict";
-const unit = require("./config-util");
+const util = require("./config-util");
 
 function fixCfg(cfg) {
 	cfg = cfg || {};
@@ -20,19 +20,8 @@ function fixCfg(cfg) {
 	return cfg;
 }
 
-let stylelint = {
-	get: function(baseDir) {
-		return unit.cosmiconfig("stylelint", {
-			configpath: baseDir,
-		})
-
-		.then(rc => fixCfg(rc.config));
-	},
-	set: function(baseDir, cfg) {
-		return unit.cosmiconfig("stylelint", {
-			configpath: baseDir,
-		}).then(rc => rc.write(fixCfg(cfg)));
-	},
+const cosmiconfigOpt = {
+	moduleName: "stylelint",
 };
 
-module.exports = stylelint;
+module.exports = util.creat(cosmiconfigOpt, fixCfg);

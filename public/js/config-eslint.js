@@ -1,7 +1,8 @@
 "use strict";
-const unit = require("./config-util");
+const util = require("./config-util");
 
 function fixCfg(cfg) {
+	cfg = cfg || {};
 	if (!cfg.extends) {
 		cfg.extends = ["eslint:recommended"];
 
@@ -44,21 +45,9 @@ function fixCfg(cfg) {
 	return cfg;
 }
 
-let eslint = {
-	get: function(baseDir) {
-		return unit.cosmiconfig("eslint", {
-			packageProp: "eslintConfig",
-			configpath: baseDir,
-		})
-
-		.then(rc => fixCfg(rc.config));
-	},
-	set: function(baseDir, cfg) {
-		return unit.cosmiconfig("eslint", {
-			packageProp: "eslintConfig",
-			configpath: baseDir,
-		}).then(rc => rc.write(fixCfg(cfg)));
-	},
+const cosmiconfigOpt = {
+	moduleName: "eslint",
+	packageProp: "eslintConfig",
 };
 
-module.exports = eslint;
+module.exports = util.creat(cosmiconfigOpt, fixCfg);

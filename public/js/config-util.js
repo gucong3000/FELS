@@ -121,24 +121,24 @@ function rcProxy(cfg, nullRuleValue) {
 const fileCache = {};
 
 let util = {
-	cosmiconfig: function(moduleName, option) {
+	cosmiconfig: function(baseDir, option) {
+		option.cwd = path.normalize(baseDir);
 		option = Object.assign({
-			configpath: option.configpath,
-			stopDir: option.configpath,
-			cwd: option.configpath,
+			stopDir: option.cwd,
+			cwd: option.cwd,
 			rcExtensions: true,
 			argv: false,
 		}, option);
 
-		return cosmiconfig(moduleName, option)
+		return cosmiconfig(option.moduleName, option)
 
-		.catch(() => {})
+		.catch(() => undefined)
 
 		.then(result => {
 			if (!result || !result.filepath || !result.config) {
 				result = {
 					config: {},
-					filepath: path.join(option.configpath || process.cwd(), "." + moduleName + "rc.json")
+					filepath: path.join(option.cwd, "." + option.moduleName + "rc.json")
 				};
 
 				process.nextTick(() => result.write(result.config));
@@ -149,7 +149,7 @@ let util = {
 					return util.readJSONAsync(result.filepath)
 
 					.then(pkg => {
-						pkg[option.packageProp || moduleName] = data;
+						pkg[option.packageProp || option.moduleName] = data;
 						return util.writeRcAsync(result.filepath, pkg);
 					});
 				};
@@ -168,7 +168,7 @@ let util = {
 
 			.then(contents => contents.toString())
 
-			.catch(() => "");
+			.catch(() => undefined);
 		}
 		return fileCache[file]
 	},
@@ -221,7 +221,7 @@ let util = {
 		});
 	},
 
-	proxy(moduleName, path) {
+	proxy: function(moduleName, path) {
 
 		let module = require("./config-" + moduleName);
 		return module.get(path)
@@ -231,8 +231,31 @@ let util = {
 			proxy.save = function() {
 				return module.set(path, config);
 			}
+			if (module.getPath) {
+				proxy.getPath = module.getPath;
+			}
 			return proxy;
 		});
+	},
+
+	creat: function(cosmiconfigOpt, fixCfg) {
+		return {
+			get: function(baseDir) {
+				return util.cosmiconfig(baseDir, cosmiconfigOpt)
+
+				.then(rc => fixCfg(rc.config));
+			},
+			set: function(baseDir, cfg) {
+				return util.cosmiconfig(baseDir, cosmiconfigOpt)
+
+				.then(rc => rc.write(fixCfg(cfg)));
+			},
+			getPath: function(baseDir) {
+				return util.cosmiconfig(baseDir, cosmiconfigOpt)
+
+				.then(rc => rc.filepath);
+			},
+		};
 	}
 };
 module.exports = util;

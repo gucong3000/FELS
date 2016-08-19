@@ -14,7 +14,7 @@ const rcPath = {
 	"hook": [".git/hooks/pre-commit", ".hg/hgrc"],
 	"editorconfig": [".editorconfig"],
 	"eslint": [".eslintrc.json"],
-	"stylelint": [".stylelintrc"],
+	"stylelint": [".stylelintrc.json"],
 };
 
 let initFns = ["hook", "editorconfig", "eslint", "stylelint"].map(initPlan);
@@ -90,7 +90,7 @@ let project = {
 	getBuild: function() {
 		build.reset();
 		let options = project.curr.build;
-		if(!options){
+		if (!options) {
 			options = {};
 			project.curr.build = options;
 		}
@@ -155,7 +155,22 @@ function initPlan(name) {
 
 	Array.from(plan.querySelectorAll("[name=edit]")).forEach((btn, i) => {
 		btn.onclick = function() {
-			app.openInEditor(path.join(currPath, rcPath[name][i]));
+
+			// 此模块拥有查找配置文件位置的函数，则使用这个函数查找配置文件
+
+			if (rcProxy.getPath) {
+				rcProxy.getPath(currPath)
+
+				.then(rcPath => {
+					// 打开配置文件
+					app.openInEditor(path.relative(currPath, rcPath));
+
+				});
+
+			} else {
+				// 直接打开配置文件
+				app.openInEditor(path.join(currPath, rcPath[name][i]));
+			}
 		}
 	});
 
