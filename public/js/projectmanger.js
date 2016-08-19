@@ -9,31 +9,9 @@ const unifiedpath = remote.require("./unifiedpath");
 const Menu = remote.Menu;
 
 let seleProjects;
+let app;
 
 let projectManger = {
-
-	/**
-	 * 项目数据
-	 */
-	projects: (() => {
-		let data;
-		try {
-			data = JSON.parse(localStorage.getItem("fels-projects"));
-		} catch (ex) {
-			//
-		}
-		if (!data) {
-			data = {};
-			console.info("初始化数据");
-			return data;
-		} else {
-			let newData = {};
-			Object.keys(data).forEach(projectPath => {
-				newData[unifiedpath(projectPath)] = data[projectPath];
-			});
-			return newData;
-		}
-	})(),
 
 	/**
 	 * 添加新项目
@@ -103,7 +81,8 @@ let projectManger = {
 	 * 保存项目数据
 	 */
 	save: function() {
-		localStorage.setItem("fels-projects", JSON.stringify(projectManger.projects));
+		app.set("projects", projectManger.projects);
+		app.save();
 	},
 
 	update: function(data) {
@@ -150,10 +129,21 @@ let projectManger = {
 			projectPath = seleProjects.value;
 		}
 		projectManger.addProject(projectPath);
-		require("./project").init(projectPath, projectManger.projects[projectPath]);
+		require("./project").initProj(projectPath, projectManger.projects[projectPath]);
 	},
 
 	init: function() {
+		app = require("./app");
+		let projects = app.get("projects");
+		projectManger.projects = {};
+
+		if(projects){
+			Object.keys(projects).forEach(projectPath => {
+				projectManger.projects[unifiedpath(projectPath)] = projects[projectPath];
+			});
+		}
+		require("./project").init();
+
 		let wrap = document.querySelector("section");
 		seleProjects = document.querySelector("aside select");
 
@@ -167,6 +157,7 @@ let projectManger = {
 				e.target.classList.add("curr");
 			}
 		};
+
 		seleProjects.onchange = e => {
 			projectManger.initProject(e.target.value);
 		};

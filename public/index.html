@@ -29,6 +29,25 @@ require("./js/app");
 		<input type="radio" id="proj-config" name="tabs">
 		<div>
 			<fieldset>
+				<legend>编译/上传配置</legend>
+				<form id="build">
+					<p>
+						本地源代码路径<br>
+						<input type="text" name="src" value="src" pattern="[^\.\/\\].+">
+						<input type="button" value="…">
+					</p>
+					<p>
+						本地输出路径<br>
+						<input type="text" name="dest" value="dist/${ pkg.version }">
+						<input type="button" value="…">
+					</p>
+					<p>
+						http输出路径<br>
+						<input type="text" name="server" value="/${ pkg.name }/dist/${ pkg.version }" pattern="/.*">
+					</p>
+				</form>
+			</fieldset>
+			<fieldset>
 				<legend>代码库钩子</legend>
 				<form id="hook">
 					<p class="git">
@@ -169,12 +188,35 @@ require("./js/app");
 		</div>
 		<input type="radio" id="fels-config" name="tabs">
 		<div>
-			<p>
+			<fieldset>
+				<legend>代码编辑</legend>
 				<label>
 					编辑器启动命令：
 					<input type="text" name="editor-cmd">
 					<input type="button" name="editor-pick" value="…">
 				</label>
+			</fieldset>
+			<fieldset>
+				<legend>被动式文件编译</legend>
+				<form id="server">
+					<p>
+						未启动，请至少为一个项目配置编译服务。
+					</p>
+					<p>
+						<label>
+							HTTP服务端口号：
+							<input type="number" name="port" value="80" min="1">
+						</label>
+					<p>
+					</p>
+						<label>
+							HTTP回源服务器：
+							<input type="url" name="fallback" placeholder="http://192.168.67.1">
+						</label>
+					</p>
+				</form>
+			</fieldset>
+			<p>
 			</p>
 		</div>
 	</section>

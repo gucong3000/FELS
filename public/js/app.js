@@ -12,6 +12,7 @@ const url = require("url");
 const path = require("path");
 const child_process = require("child_process");
 const projectmanger = require("./projectmanger");
+const server = require("./server");
 
 // 获取当前活动状态的链接的href中的文件路径
 function getPath(link) {
@@ -36,6 +37,7 @@ let app = {
 	init: function() {
 		app.initweb();
 		projectmanger.init();
+		server.init();
 		ipcRenderer.send("project-ready", true);
 	},
 	initweb: function() {
@@ -279,6 +281,9 @@ function extChecker(filePath) {
 		}
 	}
 }
-
-document.addEventListener("DOMContentLoaded", app.init);
+if (document.readyState === "complete") {
+	app.init()
+} else {
+	window.addEventListener("load", app.init);
+}
 module.exports = app;

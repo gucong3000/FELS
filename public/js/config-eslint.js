@@ -1,6 +1,5 @@
 "use strict";
 const unit = require("./config-util");
-const path = require("path");
 
 function fixCfg(cfg) {
 	if (!cfg.extends) {
@@ -45,42 +44,21 @@ function fixCfg(cfg) {
 	return cfg;
 }
 
-
 let eslint = {
 	get: function(baseDir) {
-		return Promise.all([
-			unit.readRcAsync(path.join(baseDir, "package.json")).then(pkg => pkg.eslintConfig || {}).catch(() => {
-				return {};
-			}),
-			unit.readRcAsync(path.join(baseDir, ".eslintrc.json")),
-			unit.readRcAsync(path.join(baseDir, ".eslintrc.js")),
-			unit.readRcAsync(path.join(baseDir, ".eslintrc")),
-		]).then(cfgs => Object.assign.apply(Object, cfgs))
-
-		.then(fixCfg);
-	},
-	set: function(baseDir, cfg) {
-		let pkgPath = path.join(baseDir, "package.json");
-		let rcPath = path.join(baseDir, ".eslintrc.json");
-		cfg = fixCfg(cfg);
-
-		return unit.readRcAsync(pkgPath)
-
-		.then(pkg => {
-			if (pkg.eslintConfig) {
-				pkg.eslintConfig = cfg;
-				cfg = pkg;
-				return pkgPath;
-			} else {
-				return rcPath;
-			}
+		return unit.cosmiconfig("eslint", {
+			packageProp: "eslintConfig",
+			configpath: baseDir,
 		})
 
-		.catch(() => rcPath)
-
-		.then(rcPath => unit.writeRcAsync(rcPath, cfg))
+		.then(rc => fixCfg(rc.config));
+	},
+	set: function(baseDir, cfg) {
+		return unit.cosmiconfig("eslint", {
+			packageProp: "eslintConfig",
+			configpath: baseDir,
+		}).then(rc => rc.write(fixCfg(cfg)));
 	},
 };
-
 
 module.exports = eslint;

@@ -1,6 +1,7 @@
 "use strict";
-const editorconfig = require("editorconfig");
 const stringify = require("json-stable-stringify");
+const editorconfig = require("editorconfig");
+const cosmiconfig = require("cosmiconfig");
 const fs = require("fs-extra-async");
 const path = require("path");
 const eolMap = {
@@ -120,11 +121,54 @@ function rcProxy(cfg, nullRuleValue) {
 const fileCache = {};
 
 let util = {
+	cosmiconfig: function(moduleName, option) {
+		option = Object.assign({
+			configpath: option.configpath,
+			stopDir: option.configpath,
+			cwd: option.configpath,
+			rcExtensions: true,
+			argv: false,
+		}, option);
+
+		return cosmiconfig(moduleName, option)
+
+		.catch(() => {})
+
+		.then(result => {
+			if (!result || !result.filepath || !result.config) {
+				result = {
+					config: {},
+					filepath: path.join(option.configpath || process.cwd(), "." + moduleName + "rc.json")
+				};
+
+				process.nextTick(() => result.write(result.config));
+			}
+
+			if (/[\\\/]package\.json$/.test(result.filepath)) {
+				result.write = data => {
+					return util.readJSONAsync(result.filepath)
+
+					.then(pkg => {
+						pkg[option.packageProp || moduleName] = data;
+						return util.writeRcAsync(result.filepath, pkg);
+					});
+				};
+			} else {
+				result.write = data => {
+					return util.writeRcAsync(result.filepath, data);
+				};
+			}
+
+			return result;
+		});
+	},
 	readFileAsync: function(file) {
 		if (!fileCache[file]) {
 			fileCache[file] = fs.readFileAsync(file)
 
-			.then(contents => contents.toString());
+			.then(contents => contents.toString())
+
+			.catch(() => "");
 		}
 		return fileCache[file]
 	},
@@ -136,36 +180,27 @@ let util = {
 
 		return Promise.all([util.readFileAsync(file), config])
 
-		.then(result => {
-			if (result[1]) {
-				let config = result[1];
-				if (config.insert_final_newline) {
+		.then(([contents, config]) => {
+			if (config) {
+				if (config.insert_final_newline && !/\s+$/.test(data)) {
 					data += "\n";
 				}
 				if (config.end_of_line && config.end_of_line !== "lf") {
 					data = data.replace(/\n/g, eolMap[config.end_of_line]);
 				}
 			}
-			if (data !== result[0]) {
+			if (data !== contents) {
 				return fileCache[file] = fs.writeFileAsync(file, data)
 
 				.then(() => data);
 			}
 		})
-
 	},
-	readRcAsync: function(file) {
+	readJSONAsync: function(file) {
 		return util.readFileAsync(file)
 
 		.then(contents => {
-			if (/\.js$/.test(file)) {
-				let exports = {};
-				let module = {};
-				new Function("module", "exports", "__filename", "__dirname", contents.toString()).call(null, module, exports, file, path.dirname(file))
-				return module.exports || exports;
-			} else {
-				return JSON.parse(contents)
-			}
+			return JSON.parse(contents)
 		})
 
 		.then(cfg => cfg || {})
@@ -180,7 +215,7 @@ let util = {
 				space: /^space$/i.test(config.indent_style) ? (+config.indent_size || 4) : "\t"
 			});
 			if (/\.js$/.test(file)) {
-				data = `module.exports = ${ data };`;
+				data = `"use strict";\nmodule.exports = ${ data };`;
 			}
 			return util.writeFileAsync(file, data, config)
 		});

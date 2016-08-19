@@ -7,6 +7,8 @@ const wrap = document.querySelector("section");
 const {
 	remote,
 } = require("electron");
+const dialog = remote.dialog;
+const unifiedpath = remote.require("./unifiedpath");
 
 const rcPath = {
 	"hook": [".git/hooks/pre-commit", ".hg/hgrc"],
@@ -16,10 +18,54 @@ const rcPath = {
 };
 
 let initFns = ["hook", "editorconfig", "eslint", "stylelint"].map(initPlan);
+let projectmanger;
+let build;
+
 let project = {
-	init: function(projectPath, data) {
+	init: function() {
+		projectmanger = require("./projectmanger");
+		build = wrap.querySelector("#build");
+		build.onchange = function(e) {
+			if (e.target.name && e.target.validity.valid) {
+				project.curr.build[e.target.name] = e.target.value;
+				projectmanger.save();
+			}
+		}
+		Array.from(build.querySelectorAll("[type=\"button\"][value=\"…\"]")).forEach(btn => {
+			let textbox = btn.previousElementSibling;
+
+			function save() {
+				if (textbox.validity.valid) {
+					project.curr.build[textbox.name] = textbox.value;
+					projectmanger.save();
+				}
+			}
+
+			btn.onclick = function() {
+				dialog.showOpenDialog(remote.getCurrentWindow(), {
+					defaultPath: path.join(project.curr.path, textbox.value),
+					properties: ["openDirectory"],
+				}, dirs => {
+					if (dirs) {
+						let relative = unifiedpath(path.relative(project.curr.path, dirs[0]));
+						if (relative === ".") {
+							relative = "";
+						}
+						if (relative !== textbox.value) {
+							textbox.value = relative;
+							save();
+						}
+					}
+				});
+			}
+		});
+	},
+	initProj: function(projectPath, data) {
 		project.curr = data;
 		data.path = projectPath;
+		if (!data.name) {
+			data.name = projectPath.replace(/^.*?([^\/\\]+)$/, "$1");
+		}
 		wrap.querySelector("h1").innerHTML = path.normalize(projectPath);
 		remote.require("./getreptype")(projectPath)
 
@@ -37,14 +83,33 @@ let project = {
 		});
 
 		project.getReport();
+		project.getBuild();
 		initFns.forEach(fn => fn(projectPath, data));
+	},
+
+	getBuild: function() {
+		build.reset();
+		let options = project.curr.build;
+		if(!options){
+			options = {};
+			project.curr.build = options;
+		}
+		Array.from(build.elements).forEach(elem => {
+			if (elem.name) {
+				if (elem.name in options) {
+					elem.value = options[elem.name];
+				} else {
+					options[elem.name] = elem.value;
+				}
+			}
+		});
+		projectmanger.save();
 	},
 
 	getReport: function() {
 		wrap.querySelector("#reporter+div").innerHTML = reporter.toHTML(project.curr.report, project.curr.path) || "无错误";
 	},
 };
-
 
 /**
  * 获取表单项的值，checkbox返回是否选中，radio返回选中了的元素的值，其他直接发挥元素值
