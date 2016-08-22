@@ -95,7 +95,7 @@
     "url": "git+https://github.com/gucong3000/FELS.git"
   },
   "scripts": {
-    "start": "electron ./lib/gui.js",
+    "start": "electron ./lib/gui.js --shortcut",
     "test": "gulp publish --url http://picdev.int.jumei.com/upload --username jumeife --password 123456 --base /static/static_account/ --dir ../static_account"
   },
   "version": "1.0.0"
