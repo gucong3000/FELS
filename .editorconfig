@@ -28,3 +28,6 @@ insert_final_newline = false
 [{package.json,.travis.yml}]
 indent_style = space
 indent_size = 2
+
+[*.7zSC]
+charset = utf-8-bom
