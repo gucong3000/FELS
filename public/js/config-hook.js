@@ -32,7 +32,7 @@ let hook = {
 		}).then(cmd => {
 			cmd = String(cmd).trim();
 			return {
-				enable: /\s+--gulpfile\b/.test(cmd),
+				enable: /\btask-precommit\.js\b/.test(cmd),
 				color: !cmd || /\s+--color\b/.test(cmd),
 				gui: !cmd || /\s+--gui\b/.test(cmd),
 			};
