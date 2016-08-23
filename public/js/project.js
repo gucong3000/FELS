@@ -70,16 +70,8 @@ let project = {
 		remote.require("./getreptype")(projectPath)
 
 		.then(type => {
-			wrap.classList.remove("hg");
-			wrap.classList.remove("git");
-			wrap.classList.remove("error");
-			wrap.classList.add(type);
-		})
-
-		.catch(() => {
-			wrap.classList.remove("hg");
-			wrap.classList.remove("git");
-			wrap.classList.add("error");
+			wrap.className = "";
+			wrap.classList.add(type)
 		});
 
 		project.getReport();

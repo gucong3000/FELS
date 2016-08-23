@@ -45,10 +45,12 @@ let hook = {
 			};
 			return remote.require("./task-addhooks")(config)
 
+			.catch(() => undefined)
+
 			.then(() => config);
 		});
 	},
-	set: (base, config)=>{
+	set: (base, config) => {
 		config.base = base;
 		remote.require("./task-addhooks")(config)
 	}

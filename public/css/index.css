@@ -110,18 +110,14 @@ nav .curr {
 	border-bottom-color: #fff;
 }
 
-.git .hg,
-.hg .git,
-.error .hg,
-.error .git {
+.hook .hg,
+.hook .git,
+.unknow .hook {
 	display: none;
 }
 
-fieldset .hg .hg {
-	display: block;
-}
-
-fieldset .git .git {
+.hg .hg,
+.git .git {
 	display: block;
 }
 
