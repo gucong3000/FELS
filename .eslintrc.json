@@ -11,16 +11,25 @@
 		"node": true
 	},
 	"extends": [
-		"eslint:recommended"
+		"eslint:recommended",
+		"airbnb"
 	],
 	"root": true,
 	"rules": {
+		"indent": [
+			"warn",
+			"tab"
+		],
 		"no-console": [
 			"off",
 			{
 				"allow": [
 					"warn",
-					"error"
+					"error",
+					"info",
+					"dir",
+					"time",
+					"debug"
 				]
 			}
 		],

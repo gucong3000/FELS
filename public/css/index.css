@@ -62,8 +62,27 @@ section > div {
 }
 
 section fieldset form {
-	max-height: 50vh;
+	position: relative;
+}
+
+form .rules {
+	position: absolute;
+	max-height: 100%;
+	background: #fff;
+	overflow: hidden;
+	display: block;
+	height: 64px;
+	width: 64px;
+	opacity: 0;
+	right: 0;
+	top: 0;
+}
+
+form .rules:hover {
 	overflow-y: auto;
+	height: 100%;
+	width: 50%;
+	opacity: 1;
 }
 
 section [name="tabs"] {

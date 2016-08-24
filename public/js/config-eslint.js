@@ -33,6 +33,7 @@ function fixCfg(cfg) {
 	cfg.env.es6 = cfg.env.node || cfg.env.es6 || undefined;
 	cfg.env["shared-node-browser"] = cfg.env.node && cfg.env.browser || undefined;
 	cfg.rules = cfg.rules || {};
+	cfg.rules.indent = ["warn", "tab"];
 	return cfg;
 }
 

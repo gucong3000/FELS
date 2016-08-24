@@ -160,30 +160,61 @@ require("./js/app");
 							</label>
 						</p>
 					</fieldset>
-					<fieldset>
-						<legend>强制使用有效的 JSDoc 注释</legend>
-						<label>
-							<select name="rules.valid-jsdoc[0]">
-								<option value="off">关闭</option>
-								<option value="warn" checked>警告</option>
-								<option value="error">错误</option>
-							</select>
-						</label>
-						<p>
-							<input type="checkbox" name="rules.valid-jsdoc[1].requireReturn">
-							必须写 @return 或 @returns
-						</p>
-					</fieldset>
-					<fieldset>
-						<legend>禁用 console</legend>
-						<label>
-							<select name="rules.no-console[0]">
-								<option value="off">关闭</option>
-								<option value="warn">警告</option>
-								<option value="error" checked>错误</option>
-							</select>
-						</label>
-					</fieldset>
+					<div class="rules">
+						<fieldset>
+							<legend>强制使用有效的 JSDoc 注释</legend>
+							<label>
+								<select name="rules.valid-jsdoc[0]">
+									<option value="off">关闭</option>
+									<option value="warn" checked>警告</option>
+									<option value="error">错误</option>
+								</select>
+							</label>
+							<p>
+								<input type="checkbox" name="rules.valid-jsdoc[1].requireReturn">
+								必须写 @return 或 @returns
+							</p>
+						</fieldset>
+						<fieldset>
+							<legend>禁用 console</legend>
+							<label>
+								<select name="rules.no-console[0]">
+									<option value="off">关闭</option>
+									<option value="warn">警告</option>
+									<option value="error" checked>错误</option>
+								</select>
+								<p>例外：</p>
+								<label>
+									<input type="checkbox" name="rules.no-console[1].allow[]" value="log">
+									console.log();
+								</label>
+								<label>
+									<input type="checkbox" name="rules.no-console[1].allow[]" value="warn">
+									console.warn();
+								</label>
+								<label>
+									<input type="checkbox" name="rules.no-console[1].allow[]" value="error">
+									console.error();
+								</label>
+								<label>
+									<input type="checkbox" name="rules.no-console[1].allow[]" value="info">
+									console.info();
+								</label>
+								<label>
+									<input type="checkbox" name="rules.no-console[1].allow[]" value="dir">
+									console.dir();
+								</label>
+								<label>
+									<input type="checkbox" name="rules.no-console[1].allow[]" value="time">
+									console.time();
+								</label>
+								<label>
+									<input type="checkbox" name="rules.no-console[1].allow[]" value="debug">
+									console.debug();
+								</label>
+							</label>
+						</fieldset>
+					</div>
 				</form>
 			</fieldset>
 			<fieldset>
