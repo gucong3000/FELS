@@ -15,7 +15,7 @@ sudo npm config set sass_binary_site https://npm.taobao.org/mirrors/node-sass --
 sudo npm config set phantomjs_cdnurl https://npm.taobao.org/mirrors/phantomjs --global
 sudo npm install -g cnpm --registry=https://registry.npm.taobao.org
 sudo cnpm i -g gulp-cli
-git clone git@github.com:gucong3000/FELS.git
+git clone https://github.com/gucong3000/FELS.git
 cd FELS
 cnpm i && npm start
 ```
