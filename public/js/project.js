@@ -17,22 +17,22 @@ const rcPath = {
 	"stylelint": [".stylelintrc.json"],
 };
 
-let initFns = ["hook", "editorconfig", "eslint", "stylelint"].map(initPlan);
+const initFns = ["hook", "editorconfig", "eslint", "stylelint"].map(initPlan);
 let projectmanger;
 let build;
 
-let project = {
-	init: function() {
+const project = {
+	init() {
 		projectmanger = require("./projectmanger");
 		build = wrap.querySelector("#build");
-		build.onchange = function(e) {
+		build.onchange = function (e) {
 			if (e.target.name && e.target.validity.valid) {
 				project.curr.build[e.target.name] = e.target.value;
 				projectmanger.save();
 			}
-		}
+		};
 		Array.from(build.querySelectorAll("[type=\"button\"][value=\"…\"]")).forEach(btn => {
-			let textbox = btn.previousElementSibling;
+			const textbox = btn.previousElementSibling;
 
 			function save() {
 				if (textbox.validity.valid) {
@@ -41,7 +41,7 @@ let project = {
 				}
 			}
 
-			btn.onclick = function() {
+			btn.onclick = function () {
 				dialog.showOpenDialog(remote.getCurrentWindow(), {
 					defaultPath: path.join(project.curr.path, textbox.value),
 					properties: ["openDirectory"],
@@ -57,10 +57,10 @@ let project = {
 						}
 					}
 				});
-			}
+			};
 		});
 	},
-	initProj: function(projectPath, data) {
+	initProj(projectPath, data) {
 		project.curr = data;
 		data.path = projectPath;
 		if (!data.name) {
@@ -71,7 +71,7 @@ let project = {
 
 		.then(type => {
 			wrap.className = "";
-			wrap.classList.add(type)
+			wrap.classList.add(type);
 		});
 
 		project.getReport();
@@ -79,7 +79,7 @@ let project = {
 		initFns.forEach(fn => fn(projectPath, data));
 	},
 
-	getBuild: function() {
+	getBuild() {
 		build.reset();
 		let options = project.curr.build;
 		if (!options) {
@@ -98,7 +98,7 @@ let project = {
 		projectmanger.save();
 	},
 
-	getReport: function() {
+	getReport() {
 		wrap.querySelector("#reporter+div").innerHTML = reporter.toHTML(project.curr.report, project.curr.path) || "无错误";
 	},
 };
@@ -113,22 +113,31 @@ function getElemVal(elem) {
 		elem.focus();
 		throw elem.validationMessage;
 	}
+	let value;
 	if (elem.tagName === "SELECT") {
-		return elem.value === "null" ? null : elem.value;
+		value = elem.value;
 	} else if (elem.type === "checkbox") {
 		if (elem.getAttribute("value") == null) {
-			return elem.checked;
+			value = elem.checked;
 		} else if (/\[\]$/.test(elem.name)) {
-			return Array.from(elem.form.querySelectorAll(`[name="${ elem.name }"]:checked`)).map(elem => elem.value);
+			value = Array.from(elem.form.querySelectorAll(`[name="${elem.name}"]:checked`)).map(elem => elem.value);
 		} else {
-			return elem.checked ? elem.value : null;
+			value = elem.checked ? elem.value : null;
 		}
 	} else if (elem.type === "radio") {
 		if (!elem.checked) {
-			elem = elem.form.querySelector(`[name="${ elem.name }"]:checked`);
+			elem = elem.form.querySelector(`[name="${elem.name}"]:checked`);
+		}
+		value = elem.value;
+	}
+	if (typeof value === "string") {
+		try {
+			value = JSON.parse(value);
+		} catch (ex) {
+			//
 		}
 	}
-	return elem.value;
+	return value;
 }
 
 /**
@@ -137,19 +146,22 @@ function getElemVal(elem) {
  * @return {Function}   项目初始化函数
  */
 function initPlan(name) {
-
-	let plan = wrap.querySelector("#" + name);
+	const plan = wrap.querySelector("#" + name);
 	let rcProxy;
 	let currPath;
+	let changed;
 
-	plan.onchange = function(e) {
-		rcProxy.set(e.target.name.replace(/\[\]$/, ""), getElemVal(e.target));
-		rcProxy.save();
+	function saveVal(elem) {
+		rcProxy.set(elem.name.replace(/\[\]$/, ""), getElemVal(elem));
 	}
 
-	Array.from(plan.querySelectorAll("[name=edit]")).forEach((btn, i) => {
-		btn.onclick = function() {
+	plan.onchange = function (e) {
+		saveVal(e.target);
+		rcProxy.save();
+	};
 
+	Array.from(plan.querySelectorAll("[name=edit]")).forEach((btn, i) => {
+		btn.onclick = function () {
 			// 此模块拥有查找配置文件位置的函数，则使用这个函数查找配置文件
 
 			if (rcProxy.getPath) {
@@ -158,17 +170,15 @@ function initPlan(name) {
 				.then(rcPath => {
 					// 打开配置文件
 					app.openInEditor(path.relative(currPath, rcPath));
-
 				});
-
 			} else {
 				// 直接打开配置文件
 				app.openInEditor(path.join(currPath, rcPath[name][i]));
 			}
-		}
+		};
 	});
 
-	return function(projectPath) {
+	return function (projectPath) {
 		currPath = projectPath;
 		plan.reset();
 
@@ -181,6 +191,8 @@ function initPlan(name) {
 					let value;
 					value = config.get(elem.name.replace(/\[\]$/, ""));
 					if (typeof value === "undefined") {
+						saveVal(elem);
+						changed = true;
 						return;
 					}
 					if (elem.type === "radio") {
@@ -198,6 +210,9 @@ function initPlan(name) {
 					}
 				}
 			});
+			if (changed) {
+				config.save();
+			}
 		});
 	};
 }

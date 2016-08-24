@@ -6,7 +6,7 @@ const fs = require("fs-extra-async");
 const path = require("path");
 const eolMap = {
 	cr: "\r",
-	crlf: "\r\n"
+	crlf: "\r\n",
 };
 
 /**
@@ -18,11 +18,10 @@ const eolMap = {
  * @param  {any}     nullRuleValue 当访问`proxy.rules`下某个不存在或者为null的规则是，返回的数组的第一项的值
  * @return {Proxy}   obj对象的代理
  */
-function rcProxy(cfg, nullRuleValue) {
-
+function rcProxy(cfg) {
 	function creatPropProxy(obj) {
 		return new Proxy(obj, {
-			get: function(obj, prop) {
+			get(obj, prop) {
 				if (prop in obj) {
 					if (typeof obj[prop] !== "object") {
 						return obj[prop];
@@ -31,13 +30,13 @@ function rcProxy(cfg, nullRuleValue) {
 					obj[prop] = {};
 				}
 				return creatPropProxy(obj[prop]);
-			}
+			},
 		});
 	}
 
 	function fixRule(rule) {
 		if (rule == null) {
-			rule = [nullRuleValue || null];
+			rule = [];
 		} else if (!Array.isArray(rule)) {
 			rule = [rule];
 		}
@@ -46,36 +45,36 @@ function rcProxy(cfg, nullRuleValue) {
 
 	function getProxy(obj) {
 		return new Proxy(obj, {
-			get: function(obj, prop) {
+			get(obj, prop) {
 				if (prop === "rules") {
 					return new Proxy(obj.rules || {}, {
-						get: function(rules, ruleName) {
+						get(rules, ruleName) {
 							if (obj.rules) {
 								return fixRule(rules[ruleName]);
 							} else {
 								return fixRule(null);
 							}
-						}
+						},
 					});
 				} else {
 					return obj[prop];
 				}
-			}
+			},
 		});
 	}
 
 	function setProxy(obj) {
 		return new Proxy(obj, {
-			get: function(obj, prop) {
+			get(obj, prop) {
 				if (prop === "rules") {
 					if (!obj.rules) {
 						obj.rules = {};
 					}
 					return new Proxy(obj.rules, {
-						get: function(rules, ruleName) {
+						get(rules, ruleName) {
 							rules[ruleName] = fixRule(rules[ruleName]);
 							return creatPropProxy(rules[ruleName]);
-						}
+						},
 					});
 				} else if (prop in obj) {
 					if (typeof obj[prop] !== "object") {
@@ -85,7 +84,7 @@ function rcProxy(cfg, nullRuleValue) {
 					obj[prop] = {};
 				}
 				return creatPropProxy(obj[prop]);
-			}
+			},
 		});
 	}
 
@@ -94,22 +93,22 @@ function rcProxy(cfg, nullRuleValue) {
 	}
 
 	return {
-		get: function(prop) {
+		get(prop) {
 			if (prop in cfg) {
 				return cfg[prop];
 			}
-			prop = new Function(`return this${ formatKey(prop) }`);
+			prop = new Function(`return this${formatKey(prop)}`);
 			try {
 				return prop.call(getProxy(cfg));
 			} catch (ex) {
 				//
 			}
 		},
-		set: function(prop, value) {
+		set(prop, value) {
 			if (/^\w+$/.test(prop)) {
 				cfg[prop] = value;
 			} else {
-				new Function(`return this.proxy${ formatKey(prop) } = this.value`).call({
+				new Function(`return this.proxy${formatKey(prop)} = this.value`).call({
 					proxy: setProxy(cfg),
 					value,
 				});
@@ -120,8 +119,8 @@ function rcProxy(cfg, nullRuleValue) {
 
 const fileCache = {};
 
-let util = {
-	cosmiconfig: function(baseDir, option) {
+const util = {
+	cosmiconfig(baseDir, option) {
 		option.cwd = path.normalize(baseDir);
 		option = Object.assign({
 			stopDir: option.cwd,
@@ -138,7 +137,7 @@ let util = {
 			if (!result || !result.filepath || !result.config) {
 				result = {
 					config: {},
-					filepath: path.join(option.cwd, "." + option.moduleName + "rc.json")
+					filepath: path.join(option.cwd, "." + option.moduleName + "rc.json"),
 				};
 
 				process.nextTick(() => result.write(result.config));
@@ -162,7 +161,7 @@ let util = {
 			return result;
 		});
 	},
-	readFileAsync: function(file) {
+	readFileAsync(file) {
 		if (!fileCache[file]) {
 			fileCache[file] = fs.readFileAsync(file)
 
@@ -170,10 +169,9 @@ let util = {
 
 			.catch(() => undefined);
 		}
-		return fileCache[file]
+		return fileCache[file];
 	},
-	writeFileAsync: function(file, data, config) {
-
+	writeFileAsync(file, data, config) {
 		if (!config) {
 			config = editorconfig.parse(file);
 		}
@@ -194,43 +192,42 @@ let util = {
 
 				.then(() => data);
 			}
-		})
+		});
 	},
-	readJSONAsync: function(file) {
+	readJSONAsync(file) {
 		return util.readFileAsync(file)
 
 		.then(contents => {
-			return JSON.parse(contents)
+			return JSON.parse(contents);
 		})
 
 		.then(cfg => cfg || {})
 
 		.catch(() => {});
 	},
-	writeRcAsync: function(file, data) {
+	writeRcAsync(file, data) {
 		return editorconfig.parse(file)
 
 		.then(config => {
 			data = stringify(data, {
-				space: /^space$/i.test(config.indent_style) ? (+config.indent_size || 4) : "\t"
+				space: /^space$/i.test(config.indent_style) ? (+config.indent_size || 4) : "\t",
 			});
 			if (/\.js$/.test(file)) {
-				data = `"use strict";\nmodule.exports = ${ data };`;
+				data = `"use strict";\nmodule.exports = ${data};`;
 			}
-			return util.writeFileAsync(file, data, config)
+			return util.writeFileAsync(file, data, config);
 		});
 	},
 
-	proxy: function(moduleName, path) {
-
-		let module = require("./config-" + moduleName);
+	proxy(moduleName, path) {
+		const module = require("./config-" + moduleName);
 		return module.get(path)
 
 		.then(config => {
-			let proxy = rcProxy(config, moduleName === "eslint" ? "off" : null)
-			proxy.save = function() {
+			const proxy = rcProxy(config, moduleName === "eslint" ? "off" : null);
+			proxy.save = function () {
 				return module.set(path, config);
-			}
+			};
 			if (module.getPath) {
 				proxy.getPath = module.getPath;
 			}
@@ -238,24 +235,24 @@ let util = {
 		});
 	},
 
-	creat: function(cosmiconfigOpt, fixCfg) {
+	creat(cosmiconfigOpt, fixCfg) {
 		return {
-			get: function(baseDir) {
+			get(baseDir) {
 				return util.cosmiconfig(baseDir, cosmiconfigOpt)
 
 				.then(rc => fixCfg(rc.config));
 			},
-			set: function(baseDir, cfg) {
+			set(baseDir, cfg) {
 				return util.cosmiconfig(baseDir, cosmiconfigOpt)
 
 				.then(rc => rc.write(fixCfg(cfg)));
 			},
-			getPath: function(baseDir) {
+			getPath(baseDir) {
 				return util.cosmiconfig(baseDir, cosmiconfigOpt)
 
 				.then(rc => rc.filepath);
 			},
 		};
-	}
+	},
 };
 module.exports = util;

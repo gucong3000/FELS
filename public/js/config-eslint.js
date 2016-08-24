@@ -13,12 +13,12 @@ function fixCfg(cfg) {
 		globalReturn: false,
 		impliedStrict: true,
 		jsx: true,
-	}
+	};
 
 	if (!cfg.env) {
 		cfg.env = {
 			browser: true,
-		}
+		};
 	} else if (!cfg.env.browser && !cfg.env.node) {
 		cfg.env.browser = true;
 	}

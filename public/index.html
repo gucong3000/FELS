@@ -8,7 +8,6 @@
 <link rel="stylesheet" type="text/css" href="css/markdownpad-github.css">
 <link rel="stylesheet" type="text/css" href="css/index.css">
 <script>
-"use strict";
 require("./js/app");
 </script>
 </head>
@@ -147,29 +146,54 @@ require("./js/app");
 							<label>
 								<input type="checkbox" name="extends[]" value="eslint:recommended" checked>
 								<a href="http://cn.eslint.org/docs/rules/">推荐</a>
-								的规则
+								配置
 								(eslint:recommended)
+							</label>
+						</p>
+						<p>
+							<label>
+								<input type="checkbox" name="extends[]" value="google">
+								<a href="https://www.npmjs.com/package/eslint-config-google">Google</a>
+								风格
 							</label>
 						</p>
 						<p>
 							<label>
 								<input type="checkbox" name="extends[]" value="airbnb">
 								<a href="https://github.com/sivan/javascript-style-guide#readme">Airbnb</a>
-								JavaScript Style Guide
-								(airbnb)
+								风格
 							</label>
 						</p>
 					</fieldset>
 					<div class="rules">
 						<fieldset>
-							<legend>强制使用有效的 JSDoc 注释</legend>
+							<legend>统一引号风格</legend>
+							<select name="rules.quotes[0]">
+								<option value="off">关闭</option>
+								<option value="warn">警告</option>
+								<option value="error" selected>错误</option>
+							</select>
+							<select name="rules.quotes[1]">
+								<option value="double" selected>统一为双引号</option>
+								<option value="single">统一为单引号</option>
+								<option value="backtick">统一为反引号</option>
+							</select>
 							<label>
-								<select name="rules.valid-jsdoc[0]">
-									<option value="off">关闭</option>
-									<option value="warn" checked>警告</option>
-									<option value="error">错误</option>
-								</select>
+								<input type="checkbox" name="rules.quotes[2].avoidEscape" checked>
+								字符串包含需要转义的引号时例外
 							</label>
+							<label>
+								<input type="checkbox" name="rules.quotes[2].allowTemplateLiterals" checked>
+								允许使用反勾号
+							</label>
+						</fieldset>
+						<fieldset>
+							<legend>强制使用有效的 JSDoc 注释</legend>
+							<select name="rules.valid-jsdoc[0]">
+								<option value="off">关闭</option>
+								<option value="warn" selected>警告</option>
+								<option value="error">错误</option>
+							</select>
 							<p>
 								<input type="checkbox" name="rules.valid-jsdoc[1].requireReturn">
 								必须写 @return 或 @returns
@@ -177,41 +201,39 @@ require("./js/app");
 						</fieldset>
 						<fieldset>
 							<legend>禁用 console</legend>
+							<select name="rules.no-console[0]">
+								<option value="off">关闭</option>
+								<option value="warn">警告</option>
+								<option value="error" selected>错误</option>
+							</select>
+							<p>例外：</p>
 							<label>
-								<select name="rules.no-console[0]">
-									<option value="off">关闭</option>
-									<option value="warn">警告</option>
-									<option value="error" checked>错误</option>
-								</select>
-								<p>例外：</p>
-								<label>
-									<input type="checkbox" name="rules.no-console[1].allow[]" value="log">
-									console.log();
-								</label>
-								<label>
-									<input type="checkbox" name="rules.no-console[1].allow[]" value="warn">
-									console.warn();
-								</label>
-								<label>
-									<input type="checkbox" name="rules.no-console[1].allow[]" value="error">
-									console.error();
-								</label>
-								<label>
-									<input type="checkbox" name="rules.no-console[1].allow[]" value="info">
-									console.info();
-								</label>
-								<label>
-									<input type="checkbox" name="rules.no-console[1].allow[]" value="dir">
-									console.dir();
-								</label>
-								<label>
-									<input type="checkbox" name="rules.no-console[1].allow[]" value="time">
-									console.time();
-								</label>
-								<label>
-									<input type="checkbox" name="rules.no-console[1].allow[]" value="debug">
-									console.debug();
-								</label>
+								<input type="checkbox" name="rules.no-console[1].allow[]" value="log">
+								console.log();
+							</label>
+							<label>
+								<input type="checkbox" name="rules.no-console[1].allow[]" value="warn">
+								console.warn();
+							</label>
+							<label>
+								<input type="checkbox" name="rules.no-console[1].allow[]" value="error">
+								console.error();
+							</label>
+							<label>
+								<input type="checkbox" name="rules.no-console[1].allow[]" value="info">
+								console.info();
+							</label>
+							<label>
+								<input type="checkbox" name="rules.no-console[1].allow[]" value="dir">
+								console.dir();
+							</label>
+							<label>
+								<input type="checkbox" name="rules.no-console[1].allow[]" value="time">
+								console.time();
+							</label>
+							<label>
+								<input type="checkbox" name="rules.no-console[1].allow[]" value="debug">
+								console.debug();
 							</label>
 						</fieldset>
 					</div>
@@ -233,6 +255,57 @@ require("./js/app");
 							</select>
 						</label>
 					</p>
+					<fieldset>
+						<legend>规则继承</legend>
+						<p>
+							<label>
+								<input type="checkbox" name="extends[]" value="stylelint-config-standard" checked>
+								<a href="https://www.npmjs.com/package/stylelint-config-standard">标准</a>
+								配置
+							</label>
+						</p>
+						<p>
+							<label>
+								<input type="checkbox" name="extends[]" value="stylelint-config-suitcss">
+								<a href="https://www.npmjs.com/package/stylelint-config-suitcss">SUIT CSS</a>
+								配置
+								(stylelint-config-standard)
+							</label>
+						</p>
+						<p>
+							<label>
+								<input type="checkbox" name="extends[]" value="stylelint-config-wordpress">
+								<a href="https://www.npmjs.com/package/stylelint-config-wordpress">WordPress</a>
+								配置
+								(stylelint-config-standard)
+							</label>
+						</p>
+					</fieldset>
+					<div class="rules">
+						<fieldset>
+							<legend>禁用私有属性前缀</legend>
+							<label>
+								<input type="checkbox" name="rules.at-rule-no-vendor-prefix[0]" value="true">
+								@ 规则
+							</label>
+							<label>
+								<input type="checkbox" name="rules.media-feature-name-no-vendor-prefix[0]" value="true">
+								媒体查询
+							</label>
+							<label>
+								<input type="checkbox" name="rules.property-no-vendor-prefix[0]" value="true">
+								属性名
+							</label>
+							<label>
+								<input type="checkbox" name="rules.selector-no-vendor-prefix[0]" value="true">
+								选择符
+							</label>
+							<label>
+								<input type="checkbox" name="rules.value-no-vendor-prefix[0]" value="true">
+								属性值
+							</label>
+						</fieldset>
+					</div>
 				</form>
 			</fieldset>
 		</div>

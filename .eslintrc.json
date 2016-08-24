@@ -11,8 +11,7 @@
 		"node": true
 	},
 	"extends": [
-		"eslint:recommended",
-		"airbnb"
+		"eslint:recommended"
 	],
 	"root": true,
 	"rules": {
@@ -31,6 +30,14 @@
 					"time",
 					"debug"
 				]
+			}
+		],
+		"quotes": [
+			"error",
+			"double",
+			{
+				"allowTemplateLiterals": true,
+				"avoidEscape": true
 			}
 		],
 		"valid-jsdoc": [
