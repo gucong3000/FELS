@@ -5,15 +5,6 @@ function fixCfg(cfg) {
 	cfg = cfg || {};
 	if (!cfg.extends) {
 		cfg.extends = ["eslint:recommended"];
-
-	} else if (Array.isArray(cfg.extends)) {
-		if (cfg.extends.indexOf("eslint:recommended") < 0) {
-			cfg.extends.unshift("eslint:recommended");
-		}
-	} else if (cfg.extends === "eslint:recommended") {
-		cfg.extends = [cfg.extends];
-	} else {
-		cfg.extends = ["eslint:recommended", cfg.extends];
 	}
 
 	cfg.ecmaVersion = 7;

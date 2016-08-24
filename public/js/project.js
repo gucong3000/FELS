@@ -118,6 +118,8 @@ function getElemVal(elem) {
 	} else if (elem.type === "checkbox") {
 		if (elem.getAttribute("value") == null) {
 			return elem.checked;
+		} else if (/\[\]$/.test(elem.name)) {
+			return Array.from(elem.form.querySelectorAll(`[name="${ elem.name }"]:checked`)).map(elem => elem.value);
 		} else {
 			return elem.checked ? elem.value : null;
 		}
@@ -141,7 +143,7 @@ function initPlan(name) {
 	let currPath;
 
 	plan.onchange = function(e) {
-		rcProxy.set(e.target.name, getElemVal(e.target));
+		rcProxy.set(e.target.name.replace(/\[\]$/, ""), getElemVal(e.target));
 		rcProxy.save();
 	}
 
@@ -177,7 +179,7 @@ function initPlan(name) {
 			Array.from(plan.elements).forEach(elem => {
 				if (elem.name && elem.type !== "button") {
 					let value;
-					value = config.get(elem.name);
+					value = config.get(elem.name.replace(/\[\]$/, ""));
 					if (typeof value === "undefined") {
 						return;
 					}
@@ -186,6 +188,8 @@ function initPlan(name) {
 					} else if (elem.type === "checkbox") {
 						if (elem.getAttribute("value") == null) {
 							elem.checked = !!value;
+						} else if (Array.isArray(value)) {
+							elem.checked = value.indexOf(elem.value) >= 0;
 						} else {
 							elem.checked = elem.value === String(value);
 						}

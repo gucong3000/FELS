@@ -142,6 +142,25 @@ require("./js/app");
 						</label>
 					</p>
 					<fieldset>
+						<legend>规则继承</legend>
+						<p>
+							<label>
+								<input type="checkbox" name="extends[]" value="eslint:recommended" checked>
+								<a href="http://cn.eslint.org/docs/rules/">推荐</a>
+								的规则
+								(eslint:recommended)
+							</label>
+						</p>
+						<p>
+							<label>
+								<input type="checkbox" name="extends[]" value="airbnb">
+								<a href="https://github.com/sivan/javascript-style-guide#readme">Airbnb</a>
+								JavaScript Style Guide
+								(airbnb)
+							</label>
+						</p>
+					</fieldset>
+					<fieldset>
 						<legend>强制使用有效的 JSDoc 注释</legend>
 						<label>
 							<select name="rules.valid-jsdoc[0]">

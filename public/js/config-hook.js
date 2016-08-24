@@ -33,8 +33,8 @@ let hook = {
 			cmd = String(cmd).trim();
 			return {
 				enable: /\btask-precommit\.js\b/.test(cmd),
-				color: !cmd || /\s+--color\b/.test(cmd),
-				gui: !cmd || /\s+--gui\b/.test(cmd),
+				color: !cmd || !/\s+--no-color\b/.test(cmd),
+				gui: !cmd || !/\s+--no-gui\b/.test(cmd),
 			};
 		}).catch(() => {
 			let config = {

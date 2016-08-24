@@ -86,7 +86,7 @@ section fieldset [type="number"] {
 	width: 4em;
 }
 
-fieldset input ~ a {
+fieldset [type="button"] ~ a {
 	margin-left: 2em;
 }
 
