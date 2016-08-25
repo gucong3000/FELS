@@ -2,7 +2,7 @@
 	"defaultSeverity": "warning",
 	"extends": [
 		"stylelint-config-standard",
-		"stylelint-config-wordpress"
+		"stylelint-config-suitcss"
 	],
 	"rules": {
 		"at-rule-no-vendor-prefix": [
