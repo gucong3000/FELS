@@ -34,7 +34,7 @@ function toHTML(base, relative, errors) {
 		message.push(`<span>${ error.message }</span>`)
 
 		let subMsg = [];
-		if(error.plugin){
+		if (error.plugin) {
 			subMsg.push(error.plugin);
 		}
 		if (error.rule) {
@@ -51,7 +51,7 @@ function toHTML(base, relative, errors) {
 			}
 		}
 
-		if(subMsg.length){
+		if (subMsg.length) {
 			message.push(`(${ subMsg.join(" ") })`);
 		}
 
@@ -72,7 +72,11 @@ let reporter = {
 	toHTML: function(data, base) {
 		var result = [];
 		for (let path in data) {
-			result.push.apply(result, toHTML(base, path, data[path]));
+			if (data[path]) {
+				result.push.apply(result, toHTML(base, path, data[path]));
+			} else {
+				delete data[path];
+			}
 		}
 		return result.join("\n");
 	}

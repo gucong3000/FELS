@@ -92,7 +92,7 @@ let projectManger = {
 
 			if (projectManger.projects[unifiedProjectPath]) {
 				for (let key in data[projectPath]) {
-					projectManger.projects[unifiedProjectPath][key] = data[projectPath][key];
+					projectManger.projects[unifiedProjectPath][key] = Object.assign(projectManger.projects[unifiedProjectPath][key] || {}, data[projectPath][key]);
 				}
 			} else {
 				projectManger.projects[unifiedProjectPath] = data[projectPath];
@@ -137,7 +137,7 @@ let projectManger = {
 		let projects = app.get("projects");
 		projectManger.projects = {};
 
-		if(projects){
+		if (projects) {
 			Object.keys(projects).forEach(projectPath => {
 				projectManger.projects[unifiedpath(projectPath)] = projects[projectPath];
 			});

@@ -1,7 +1,6 @@
 "use strict";
 const {
 	clipboard,
-	ipcRenderer,
 	remote,
 	shell,
 } = require("electron");
@@ -38,7 +37,7 @@ let app = {
 		app.initweb();
 		projectmanger.init();
 		server.init();
-		ipcRenderer.send("project-ready", true);
+		remote.getCurrentWebContents().emit("app-ready")
 	},
 	initweb: function() {
 		let wrap = document.querySelector("section");
@@ -226,11 +225,11 @@ let app = {
 			let checkExt = extChecker(filePath);
 			let child = child_process.spawnSync(process.platform === "win32" ? "where" : "which", [filePath]);
 			if (!child.status && child.stdout.toString().trim().split(/\r?\n/g).some(stdout => {
-					if (stdout && checkExt(stdout)) {
-						filePath = stdout;
-						return true;
-					}
-				})) {
+				if (stdout && checkExt(stdout)) {
+					filePath = stdout;
+					return true;
+				}
+			})) {
 				return filePath;
 			}
 		}

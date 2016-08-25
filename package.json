@@ -1,5 +1,8 @@
 {
   "author": "gucong",
+  "bin": {
+    "fels": "./bin/fels.js"
+  },
   "bugs": {
     "url": "https://github.com/gucong3000/FELS/issues"
   },
