@@ -1,8 +1,7 @@
 {
 	"defaultSeverity": "warning",
 	"extends": [
-		"stylelint-config-standard",
-		"stylelint-config-suitcss"
+		"stylelint-config-standard"
 	],
 	"rules": {
 		"at-rule-no-vendor-prefix": [
