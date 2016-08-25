@@ -1,5 +1,6 @@
 "use strict";
 const path = require("path");
+const fs = require("fs-extra-async");
 const reporter = require("./reporter");
 const config = require("./config-util");
 const app = require("./app");
@@ -25,7 +26,7 @@ const project = {
 	init() {
 		projectmanger = require("./projectmanger");
 		build = wrap.querySelector("#build");
-		build.onchange = function (e) {
+		build.onchange = function(e) {
 			if (e.target.name && e.target.validity.valid) {
 				project.curr.build[e.target.name] = e.target.value;
 				projectmanger.save();
@@ -41,7 +42,7 @@ const project = {
 				}
 			}
 
-			btn.onclick = function () {
+			btn.onclick = function() {
 				dialog.showOpenDialog(remote.getCurrentWindow(), {
 					defaultPath: path.join(project.curr.path, textbox.value),
 					properties: ["openDirectory"],
@@ -86,14 +87,19 @@ const project = {
 			options = {};
 			project.curr.build = options;
 		}
-		Array.from(build.elements).forEach(elem => {
-			if (elem.name) {
-				if (elem.name in options) {
-					elem.value = options[elem.name];
-				} else {
-					options[elem.name] = elem.value;
+		fs.readJson(path.join(project.curr.path, "package.json"), (error, pkg) => {
+			Array.from(build.elements).forEach(elem => {
+				if (elem.name) {
+					if (!pkg) {
+						elem.value = elem.value.replace(/\/?\$\{\s*pkg\b.*?\}/g, "");
+					}
+					if (elem.name in options) {
+						elem.value = options[elem.name];
+					} else {
+						options[elem.name] = elem.value;
+					}
 				}
-			}
+			});
 		});
 		projectmanger.save();
 	},
@@ -155,13 +161,13 @@ function initPlan(name) {
 		rcProxy.set(elem.name.replace(/\[\]$/, ""), getElemVal(elem));
 	}
 
-	plan.onchange = function (e) {
+	plan.onchange = function(e) {
 		saveVal(e.target);
 		rcProxy.save();
 	};
 
 	Array.from(plan.querySelectorAll("[name=edit]")).forEach((btn, i) => {
-		btn.onclick = function () {
+		btn.onclick = function() {
 			// 此模块拥有查找配置文件位置的函数，则使用这个函数查找配置文件
 
 			if (rcProxy.getPath) {
@@ -178,7 +184,7 @@ function initPlan(name) {
 		};
 	});
 
-	return function (projectPath) {
+	return function(projectPath) {
 		currPath = projectPath;
 		plan.reset();
 
