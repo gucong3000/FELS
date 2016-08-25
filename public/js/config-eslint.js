@@ -42,4 +42,4 @@ const cosmiconfigOpt = {
 	packageProp: "eslintConfig",
 };
 
-module.exports = util.creat(cosmiconfigOpt, fixCfg);
+module.exports = util.create(cosmiconfigOpt, fixCfg);

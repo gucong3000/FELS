@@ -235,7 +235,7 @@ const util = {
 		});
 	},
 
-	creat(cosmiconfigOpt, fixCfg) {
+	create(cosmiconfigOpt, fixCfg) {
 		return {
 			get(baseDir) {
 				return util.cosmiconfig(baseDir, cosmiconfigOpt)

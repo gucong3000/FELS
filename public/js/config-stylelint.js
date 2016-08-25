@@ -11,4 +11,4 @@ const cosmiconfigOpt = {
 	moduleName: "stylelint",
 };
 
-module.exports = util.creat(cosmiconfigOpt, fixCfg);
+module.exports = util.create(cosmiconfigOpt, fixCfg);
