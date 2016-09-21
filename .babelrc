@@ -1,4 +1,7 @@
 {
+	"plugins": [
+		"transform-async-to-generator"
+	],
 	"presets": [
 		"stage-2"
 	]

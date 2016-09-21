@@ -143,6 +143,9 @@ function getElemVal(elem) {
 			//
 		}
 	}
+	if(Array.isArray(value) && !value.length) {
+		return;
+	}
 	return value;
 }
 
@@ -175,7 +178,7 @@ function initPlan(name) {
 
 				.then(rcPath => {
 					// 打开配置文件
-					app.openInEditor(path.relative(currPath, rcPath));
+					app.openInEditor(path.resolve(currPath, rcPath));
 				});
 			} else {
 				// 直接打开配置文件

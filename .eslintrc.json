@@ -1,10 +1,4 @@
 {
-	"ecmaFeatures": {
-		"globalReturn": false,
-		"impliedStrict": true,
-		"jsx": true
-	},
-	"ecmaVersion": 7,
 	"env": {
 		"browser": false,
 		"es6": true,
@@ -13,11 +7,15 @@
 	"extends": [
 		"eslint:recommended"
 	],
+	"parser": "babel-eslint",
 	"root": true,
 	"rules": {
 		"indent": [
 			"warn",
-			"tab"
+			"tab",
+			{
+				"SwitchCase": 1
+			}
 		],
 		"no-console": [
 			"off",
@@ -46,6 +44,5 @@
 				"requireReturn": false
 			}
 		]
-	},
-	"sourceType": "module"
+	}
 }

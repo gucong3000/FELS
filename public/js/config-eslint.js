@@ -7,13 +7,7 @@ function fixCfg(cfg) {
 		cfg.extends = ["eslint:recommended"];
 	}
 
-	cfg.ecmaVersion = 7;
-	cfg.sourceType = "module";
-	cfg.ecmaFeatures = {
-		globalReturn: false,
-		impliedStrict: true,
-		jsx: true,
-	};
+	cfg.parser = "babel-eslint";
 
 	if (!cfg.env) {
 		cfg.env = {
@@ -33,7 +27,11 @@ function fixCfg(cfg) {
 	cfg.env.es6 = cfg.env.node || cfg.env.es6 || undefined;
 	cfg.env["shared-node-browser"] = cfg.env.node && cfg.env.browser || undefined;
 	cfg.rules = cfg.rules || {};
-	cfg.rules.indent = ["warn", "tab"];
+	if (!cfg.rules.indent) {
+		cfg.rules.indent = ["warn", "tab", {
+			"SwitchCase": 1
+		}];
+	}
 	return cfg;
 }
 
