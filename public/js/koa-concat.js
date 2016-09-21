@@ -31,6 +31,7 @@ function getContents(val) {
 	} else if (val !== null) {
 		return Buffer.from(JSON.stringify(val));
 	}
+	return val;
 }
 
 function combo(option) {
@@ -50,7 +51,8 @@ function combo(option) {
 	}
 
 	function middleware(ctx, next) {
-		let combo = match(ctx.url);
+		let originalUrl = ctx.url;
+		let combo = match(originalUrl);
 		if (combo && combo.length) {
 			let pos;
 
@@ -63,20 +65,78 @@ function combo(option) {
 				}
 				return false;
 			});
-			let originalUrl = ctx.url;
+
+			let originalResponse = ctx.response;
+			let header = Object.assign({}, originalResponse.header);
+			let lastModified;
+			let type;
 
 			// 按combo信息，重新执行后续中间件
 			return loopAsync(combo, (url) => {
-				// 生成新的ctx对象
 				ctx.url = url;
-				ctx.body = null;
 
-				// 执行后续中间件
-				return compose(stream)(ctx).then(() => getContents(ctx.body));
-			}).then(body => {
-				// 收集其他中间件对ctx.body写入的数据
-				ctx.body = Buffer.concat(body);
+				// 建立新的response对象
+				const response = Object.create(ctx.app.response);
+				response.res = new originalResponse.res.constructor(ctx.req);
+				ctx.response = response;
+
+				// 使用新response执行后续中间件
+				return compose(stream)(ctx)
+
+				.then(() => getContents(response.body))
+
+				.then(contents => {
+					// 保存body数据
+					response._body = contents || `\n/* ${ url }\t${ response.message || response.status } */\n`;
+					// 保存响应头
+					Object.assign(header, response.header);
+					// 保存最后修改时间
+					if (response.lastModified > lastModified) {
+						lastModified = response.lastModified;
+					}
+					// Content-Type
+					if (!type && response.type) {
+						type = response.type;
+					}
+					return response;
+				});
+
+			}).then(response => {
+
+				// 删除不需要的header头
+				[
+					"Content-Length",
+					"Content-Type",
+					"ETag",
+					"Last-Modified",
+				].forEach(type => {
+					delete header[type];
+					delete header[type.toLowerCase()];
+				});
+
+				// 恢复原始的url与response对象
 				ctx.url = originalUrl;
+				ctx.response = originalResponse;
+				originalResponse.set(header);
+
+				// 如果有至少一个response含有etag，则生成etag
+				if (response.some(response => response.etag)) {
+					originalResponse.etag = response.map(response => response.etag || crypto.createHash("md5").update(response._body).digest("hex")).join(option.sep);
+				}
+
+				// 最后修改时间
+				if (lastModified) {
+					originalResponse.lastModified = lastModified;
+				}
+
+				// Content-Type
+				if (type) {
+					response.type = type;
+				}
+
+				// 收集其他中间件对ctx.body写入的数据
+				originalResponse.body = Buffer.concat(response.map(response => response._body));
+
 			});
 		} else {
 			// url中没有请求合并信息，继续执行后续中间件

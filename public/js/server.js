@@ -7,6 +7,7 @@ const fs = require("fs-extra-async");
 const path = require("path");
 const gulp = require("gulp");
 const gutil = require("gulp-util");
+const livereload = require("koa-livereload");
 let app;
 let wraper;
 let projectManger;
@@ -48,7 +49,7 @@ function index(ctx, filePath, option = {}) {
 
 	.then(subNames => {
 		if (/\/$/.test(ctx.path)) {
-			let parent = filePath.length > 1 ? `<a href="..">..</a><br>` : "";
+			let parent = filePath.length > 1 ? `<a href="..">..</a><br>` : `<a href="/">/</a><br>`;
 			ctx.body = `<h1>${ dir }</h1>${ parent }` + subNames.map(name => `<a href="${ name }">${ name }</a>`).join("<br>");
 			ctx.type = "html";
 		} else {
@@ -159,6 +160,11 @@ let server = {
 			const ms = new Date() - start;
 			console.log(`${ctx.method} ${ctx.url} - ${ms}ms`);
 		});
+
+		// 浏览器自动刷新
+		if(app.env === "development"){
+			app.use(livereload());
+		}
 
 		// http请求合并
 		app.use(concat());
