@@ -45,7 +45,9 @@ let projectManger = {
 	 */
 	addProject: function(projectPath) {
 		if (!projectManger.projects[projectPath]) {
-			projectManger.projects[projectPath] = {};
+			projectManger.projects[projectPath] = {
+				report: {}
+			};
 			return true;
 		} else {
 			return false;

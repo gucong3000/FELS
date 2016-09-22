@@ -2,6 +2,7 @@
 const Koa = require("koa");
 const send = require("koa-send");
 const concat = require("./koa-concat");
+const reporter = require("./reporter");
 const koa_gulp = require("./koa-gulp");
 const fs = require("fs-extra-async");
 const path = require("path");
@@ -38,7 +39,7 @@ function match(prefix, path) {
 
 	// `/mount` does not match `/mountlkjalskjdf`
 	if ("/" != newPath[0]) return false;
-	return decodeURIComponent(newPath);
+	return newPath;
 }
 
 function index(ctx, filePath, option = {}) {
@@ -64,7 +65,9 @@ let callgulp = (ctx, filePath, buildConf) => {
 		cwd: buildConf.path,
 		base: path.posix.join(buildConf.path, buildConf.src),
 		dest: buildConf.dest,
+		errorHandler: buildConf.errorHandler,
 	};
+
 	// 普通的js、css操作
 	let styleBuilder = require("../../lib/task-style")(gulpOpt);
 	let esBuilder = require("../../lib/task-es")(gulpOpt);
@@ -122,6 +125,8 @@ let server = {
 		server.initServer();
 	},
 	getConfig: function(proj) {
+
+		// 获取package.json
 		let pkg;
 		try {
 			pkg = fs.readJsonSync(path.join(proj.path, "package.json"));
@@ -129,6 +134,7 @@ let server = {
 			pkg = {};
 		}
 
+		// 将字符串中类似`${ pkg.name }`格式的字符串替换为package.json中的数据
 		function normalizePath(strPath) {
 			return strPath.replace(/\$\{\s*(.+?)\s*\}/g, function(s, key) {
 				try {
@@ -139,12 +145,15 @@ let server = {
 				return s;
 			});
 		}
+		// 获取数据
 		let buildConf = {};
 		Object.keys(proj.build).map(cfg => {
 			buildConf[cfg] = normalizePath(proj.build[cfg]);
 		});
 		buildConf.path = proj.path;
 		buildConf.name = proj.name;
+
+		// 修正buildConf.server的格式，字符串前后加上`/`
 		if (buildConf.server) {
 			buildConf.server = buildConf.server.replace(/^\/*/, "/").replace(/\/*$/, "/");
 		}
@@ -158,11 +167,11 @@ let server = {
 			const start = new Date();
 			await next();
 			const ms = new Date() - start;
-			console.log(`${ctx.method} ${ctx.url} - ${ms}ms`);
+			console.log(`${ ctx.method } ${ decodeURIComponent(ctx.url) } - ${ ms }ms`);
 		});
 
 		// 浏览器自动刷新
-		if(app.env === "development"){
+		if (app.env === "development") {
 			app.use(livereload());
 		}
 
@@ -174,39 +183,63 @@ let server = {
 			let prev = ctx.path;
 
 			// 读取各个项目的配置
-			let projConfig = Object.keys(projectManger.projects).map(proj => {
+			let projs = Object.keys(projectManger.projects).map(proj => {
 				proj = projectManger.projects[proj];
 
 				if (!proj.build.server) {
 					return;
 				}
 
-				return server.getConfig(proj);
-			}).filter(proj => proj);
+				return {
+					info: proj,
+					buildConf: server.getConfig(proj)
+				};
+			}).filter(proj => proj && proj.buildConf);
 
 			// 查找远程地址配置与url相符的项目页
-			let proj = projConfig.map(buildConf => {
+			let proj = projs.map(({
+				buildConf
+			}) => {
 				let serverRoot = buildConf.server;
-				var newPath = match(serverRoot, prev);
+				var newPath = match(serverRoot, decodeURIComponent(prev));
+
 				if (newPath) {
 					return async() => {
+						let sourcePath = path.join(buildConf.src, newPath);
+
 						// 使用gulp读取文件
+						buildConf.errorHandler = function(error) {
+							reporter.update(projectManger.projects[buildConf.path], {
+								[sourcePath]: [error]
+							});
+
+							console.error(error);
+
+							if (ctx.app.env === "development"){
+								ctx.throw(500, String(error));
+							}
+						}
+
 						await koa_gulp(() => callgulp(ctx, newPath, buildConf))(ctx, async() => {
-							if (!ctx.body) {
-								let rootDir = path.join(buildConf.path, buildConf.src);
-								// 静态文件服务
-								await send(ctx, newPath, {
+							reporter.update(projectManger.projects[buildConf.path], {
+								[sourcePath]: null
+							});
+						});
+
+						if (!ctx.body) {
+							let rootDir = path.join(buildConf.path, buildConf.src);
+							// 静态文件服务
+							await send(ctx, newPath, {
+								root: rootDir
+							});
+
+							if (ctx.app.env === "development" && !ctx.body) {
+								// 文件索引页面
+								await index(ctx, newPath, {
 									root: rootDir
 								});
-
-								if (ctx.app.env === "development" && !ctx.body) {
-									// 文件索引页面
-									await index(ctx, newPath, {
-										root: rootDir
-									});
-								}
 							}
-						});
+						}
 					};
 				}
 			}).filter(proj => proj);
@@ -221,7 +254,8 @@ let server = {
 
 			// 首页，显示对各个项目的索引页面
 			if (!ctx.body && ctx.path === "/") {
-				ctx.body = projConfig.map(proj => `<a href="${ proj.server }">${ proj.name }</a>`).join("<br>");
+				console.log(projs);
+				ctx.body = projs.map(proj => `<a href="${ proj.buildConf.server }">${ proj.info.name }</a>`).join("<br>");
 			}
 		});
 

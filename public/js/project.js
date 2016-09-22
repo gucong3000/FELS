@@ -61,6 +61,7 @@ const project = {
 			};
 		});
 	},
+
 	initProj(projectPath, data) {
 		project.curr = data;
 		data.path = projectPath;
@@ -104,8 +105,9 @@ const project = {
 		projectmanger.save();
 	},
 
-	getReport() {
-		wrap.querySelector("#reporter+div").innerHTML = reporter.toHTML(project.curr.report, project.curr.path) || "无错误";
+	getReport: async() => {
+		await reporter.update(project.curr);
+		reporter.toHTML(project.curr);
 	},
 };
 
@@ -143,7 +145,7 @@ function getElemVal(elem) {
 			//
 		}
 	}
-	if(Array.isArray(value) && !value.length) {
+	if (Array.isArray(value) && !value.length) {
 		return;
 	}
 	return value;

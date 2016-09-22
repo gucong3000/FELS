@@ -17,7 +17,6 @@ function koa_gulp(callback) {
 					}
 					cb(null, file);
 				}));
-				stream.on("error", reject);
 				eos(stream, {
 					error: true,
 					readable: stream.readable,
