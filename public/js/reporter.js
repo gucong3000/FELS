@@ -113,7 +113,7 @@ function fixError(error) {
 		// 错误等级
 		severity: error.severity === "warning" ? "warn" : (error.severity || "error"),
 		// 文件名
-		fileName: unifiedpath(error.fileName || (error.file ? (error.file.path || error.file) : error.fileName) || ""),
+		fileName: error.fileName || (error.file ? (error.file.path || error.file) : error.fileName),
 		// 行号
 		lineNumber: error.lineNumber || error.line,
 		// 列号

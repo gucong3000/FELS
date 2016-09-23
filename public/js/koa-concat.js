@@ -8,7 +8,6 @@
 module.exports = combo;
 
 const path = require("path").posix;
-const co = require("co");
 const compose = require("koa-compose");
 const BufferStreams = require("bufferstreams");
 
@@ -146,10 +145,10 @@ function combo(option) {
 	return middleware;
 }
 
-
-let loopAsync = co.wrap(function* loopAsync(arr, callback) {
+async function loopAsync(arr, callback){
 	for (let i = 0; i < arr.length; i++) {
-		yield arr[i] = callback(arr[i]);
+		arr[i] = await callback(arr[i]);
 	}
-	return Promise.all(arr);
-})
+	return await Promise.all(arr);
+
+}

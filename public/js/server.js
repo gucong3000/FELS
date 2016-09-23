@@ -6,8 +6,6 @@ const reporter = require("./reporter");
 const koa_gulp = require("./koa-gulp");
 const fs = require("fs-extra-async");
 const path = require("path");
-const gulp = require("gulp");
-const gutil = require("gulp-util");
 const livereload = require("koa-livereload");
 let app;
 let wraper;
@@ -54,41 +52,11 @@ function index(ctx, filePath, option = {}) {
 			ctx.body = `<h1>${ dir }</h1>${ parent }` + subNames.map(name => `<a href="${ name }">${ name }</a>`).join("<br>");
 			ctx.type = "html";
 		} else {
-			ctx.redirect(ctx.path + "/");
+			ctx.path = ctx.path + "/";
+			ctx.redirect(ctx.url);
 		}
 	}).catch(() => undefined);
 }
-
-let callgulp = (ctx, filePath, buildConf) => {
-	let gulpOpt = {
-		allowEmpty: true,
-		cwd: buildConf.path,
-		base: path.posix.join(buildConf.path, buildConf.src),
-		dest: buildConf.dest,
-		errorHandler: buildConf.errorHandler,
-	};
-
-	// 普通的js、css操作
-	let styleBuilder = require("../../lib/task-style")(gulpOpt);
-	let esBuilder = require("../../lib/task-es")(gulpOpt);
-	let globs = path.posix.join(buildConf.src, filePath || ctx.path);
-	let extname = path.extname(globs);
-	let type;
-
-	let stream;
-	if (/\.(?:css|less|scss)$/i.test(extname)) {
-		stream = styleBuilder(globs);
-		type = "css";
-	} else if (/\.(?:jsx?|es\d*|babel)$/i.test(extname)) {
-		stream = esBuilder(globs);
-		type = "js";
-	}
-	if (stream) {
-		stream = stream.pipe(buildConf.dest ? gulp.dest(buildConf.dest) : gutil.noop());
-		ctx.type = type;
-		return stream;
-	}
-};
 
 let server = {
 	init: function() {
@@ -205,27 +173,50 @@ let server = {
 
 				if (newPath) {
 					return async() => {
-						let sourcePath = path.join(buildConf.src, newPath);
+						if (!/\Wmin\.\w+$/.test(newPath)) {
+							ctx.path = newPath;
+							let sourcePath = path.join(buildConf.src, newPath);
 
-						// 使用gulp读取文件
-						buildConf.errorHandler = function(error) {
-							reporter.update(projectManger.projects[buildConf.path], {
-								[sourcePath]: [error]
+							let error = null;
+
+							// 使用gulp读取文件
+							await koa_gulp(buildConf.src, function() {
+								let processors;
+								if (/\.(?:s?css|less)$/i.test(ctx.path)) {
+									processors = require("../../lib/processors-style")(ctx.path);
+								} else if (/\.(?:jsx?|es\d*|babel)$/i.test(ctx.path)) {
+									processors = require("../../lib/processors-script")(ctx.path);
+								} else {
+									return;
+								}
+
+								return {
+									allowEmpty: true,
+									cwd: buildConf.path,
+									base: path.posix.join(buildConf.path, buildConf.src),
+									processors,
+								};
+							})(ctx).catch(e => {
+								if (error) {
+									error.push(e);
+								} else {
+									error = [e];
+								}
+
+								console.error(e.stack || e);
 							});
 
-							console.error(error);
+							if (error || ctx.body) {
+								reporter.update(projectManger.projects[buildConf.path], {
+									[sourcePath]: error
+								});
+							}
 
-							if (ctx.app.env === "development"){
-								ctx.throw(500, String(error));
+							if (error && ctx.app.env === "development") {
+								ctx.status = 500;
+								ctx.message = error.map(error => String(error.message || error)).join(" ");
 							}
 						}
-
-						await koa_gulp(() => callgulp(ctx, newPath, buildConf))(ctx, async() => {
-							reporter.update(projectManger.projects[buildConf.path], {
-								[sourcePath]: null
-							});
-						});
-
 						if (!ctx.body) {
 							let rootDir = path.join(buildConf.path, buildConf.src);
 							// 静态文件服务
@@ -245,11 +236,13 @@ let server = {
 			}).filter(proj => proj);
 
 			// 尝试各项目配置
+			let rawPath = ctx.path
 			if (proj && proj.length) {
 				for (let i = 0; i < proj.length && !ctx.body; i++) {
 					await proj[i]();
 				}
 			}
+			ctx.path = rawPath;
 			await next();
 
 			// 首页，显示对各个项目的索引页面
