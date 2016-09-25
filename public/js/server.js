@@ -148,7 +148,7 @@ let server = {
 
 		// 各项目文件读取
 		app.use(async(ctx, next) => {
-			let prev = ctx.path;
+			let rawPath = ctx.path;
 
 			// 读取各个项目的配置
 			let projs = Object.keys(projectManger.projects).map(proj => {
@@ -169,18 +169,33 @@ let server = {
 				buildConf
 			}) => {
 				let serverRoot = buildConf.server;
-				var newPath = match(serverRoot, decodeURIComponent(prev));
+				let ver;
+				var newPath = match(serverRoot, decodeURIComponent(rawPath).replace(/\/?@([^\/]+)/, (s, v) => {
+					ver = v;
+					return "";
+				}));
 
 				if (newPath) {
 					return async() => {
+						ctx.path = newPath;
 						if (!/\Wmin\.\w+$/.test(newPath)) {
-							ctx.path = newPath;
-							let sourcePath = path.join(buildConf.src, newPath);
+							if (ver) {
+								// 代码库分支切换功能，eq: http://127.0.0.1:3000/static@default/
+								let exec = require("mz/child_process").exec;
+								let processOptions = {
+									cwd: buildConf.path
+								};
+								await exec("hg update --clean --rev " +  ver, processOptions)
+
+								.catch(() => {
+									return exec("git checkout --force " + ver, processOptions)
+								});
+							}
 
 							let error = null;
 
 							// 使用gulp读取文件
-							await koa_gulp(buildConf.src, function() {
+							let callgulp = koa_gulp(buildConf.src, function() {
 								let processors;
 								if (/\.(?:s?css|less)$/i.test(ctx.path)) {
 									processors = require("../../lib/processors-style")(ctx.path);
@@ -196,7 +211,8 @@ let server = {
 									base: path.posix.join(buildConf.path, buildConf.src),
 									processors,
 								};
-							})(ctx).catch(e => {
+							});
+							await callgulp(ctx).catch(e => {
 								if (error) {
 									error.push(e);
 								} else {
@@ -208,7 +224,7 @@ let server = {
 
 							if (error || ctx.body) {
 								reporter.update(projectManger.projects[buildConf.path], {
-									[sourcePath]: error
+									[path.posix.join(buildConf.src, newPath)]: error
 								});
 							}
 
@@ -218,7 +234,7 @@ let server = {
 							}
 						}
 						if (!ctx.body) {
-							let rootDir = path.join(buildConf.path, buildConf.src);
+							let rootDir = path.posix.join(buildConf.path, buildConf.src);
 							// 静态文件服务
 							await send(ctx, newPath, {
 								root: rootDir
@@ -236,18 +252,16 @@ let server = {
 			}).filter(proj => proj);
 
 			// 尝试各项目配置
-			let rawPath = ctx.path
 			if (proj && proj.length) {
 				for (let i = 0; i < proj.length && !ctx.body; i++) {
 					await proj[i]();
 				}
+				ctx.path = rawPath;
 			}
-			ctx.path = rawPath;
 			await next();
 
 			// 首页，显示对各个项目的索引页面
 			if (!ctx.body && ctx.path === "/") {
-				console.log(projs);
 				ctx.body = projs.map(proj => `<a href="${ proj.buildConf.server }">${ proj.info.name }</a>`).join("<br>");
 			}
 		});

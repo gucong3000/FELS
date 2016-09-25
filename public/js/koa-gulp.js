@@ -73,7 +73,6 @@ function koa_gulp(src, options) {
 
 			// 将gulp输出的文件放进缓存
 			files.forEach(file => {
-				console.log(file);
 				let relative = path.join(src, file.relative);
 				cache[relative] = file;
 			});
