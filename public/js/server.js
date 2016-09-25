@@ -7,10 +7,13 @@ const koa_gulp = require("./koa-gulp");
 const fs = require("fs-extra-async");
 const path = require("path");
 const livereload = require("koa-livereload");
+const {
+	remote,
+} = require("electron");
 let app;
 let wraper;
 let projectManger;
-
+let currRev = {};
 
 /**
  * Check if `prefix` satisfies a `path`.
@@ -56,6 +59,38 @@ function index(ctx, filePath, option = {}) {
 			ctx.redirect(ctx.url);
 		}
 	}).catch(() => undefined);
+}
+
+function checkout(cwd, rev) {
+	// 代码库分支切换功能，eq: http://127.0.0.1:3000/static@default/
+
+	return remote.require("./getreptype")(cwd)
+
+	.then(type => {
+		let cmd;
+
+		// 根据代码库类型确定默认分支名与切换命令
+		if (type === "hg") {
+			cmd = "hg update --clean --rev " + (rev || "default");
+		} else if (type === "git") {
+			cmd = "git checkout --force " + (rev || "master");
+		}
+
+		// 判断是否已经在此分支，决定是否需要执行命令
+		if (cmd && currRev[cwd] !== cmd) {
+			let exec = require("mz/child_process").exec;
+
+			// 执行命令
+			return exec(cmd, {
+				cwd
+			})
+
+			.then(() => {
+				// 记录最后一次执行的情况
+				currRev[cwd] = cmd;
+			});
+		}
+	});
 }
 
 let server = {
@@ -170,7 +205,7 @@ let server = {
 			}) => {
 				let serverRoot = buildConf.server;
 				let ver;
-				var newPath = match(serverRoot, decodeURIComponent(rawPath).replace(/\/?@([^\/]+)/, (s, v) => {
+				var newPath = match(serverRoot, decodeURIComponent(rawPath).replace(/\/?@([^\/]+)/g, (s, v) => {
 					ver = v;
 					return "";
 				}));
@@ -178,23 +213,17 @@ let server = {
 				if (newPath) {
 					return async() => {
 						ctx.path = newPath;
-						if (!/\Wmin\.\w+$/.test(newPath)) {
-							if (ver) {
-								// 代码库分支切换功能，eq: http://127.0.0.1:3000/static@default/
-								let exec = require("mz/child_process").exec;
-								let processOptions = {
-									cwd: buildConf.path
-								};
-								await exec("hg update --clean --rev " +  ver, processOptions)
 
-								.catch(() => {
-									return exec("git checkout --force " + ver, processOptions)
-								});
-							}
+						if (ver) {
+							await checkout(buildConf.path, ver);
+						}
+
+						// 非压缩文件，执行gulp
+						if (!/\Wmin\.\w+$/.test(newPath)) {
 
 							let error = null;
 
-							// 使用gulp读取文件
+							// koa-gulp插件
 							let callgulp = koa_gulp(buildConf.src, function() {
 								let processors;
 								if (/\.(?:s?css|less)$/i.test(ctx.path)) {
@@ -205,6 +234,7 @@ let server = {
 									return;
 								}
 
+								// gulp.src函数所需参数
 								return {
 									allowEmpty: true,
 									cwd: buildConf.path,
@@ -212,6 +242,8 @@ let server = {
 									processors,
 								};
 							});
+
+							// 执行gulp
 							await callgulp(ctx).catch(e => {
 								if (error) {
 									error.push(e);
@@ -282,7 +314,7 @@ let server = {
 	},
 	showError: function(message, title) {
 		// 在GUI错误对话框中弹出消息
-		const dialog = require("electron").remote.dialog;
+		const dialog = remote.dialog;
 		setTimeout(() => {
 			dialog.showErrorBox(title || "监听网络端口时出错", message);
 		}, 200);
