@@ -3,7 +3,7 @@ const Koa = require("koa");
 const send = require("koa-send");
 const concat = require("./koa-concat");
 const reporter = require("./reporter");
-const koa_gulp = require("./koa-gulp");
+const koa_gulp = require("./koa-vinyl");
 const fs = require("fs-extra-async");
 const path = require("path");
 const livereload = require("koa-livereload");
@@ -30,19 +30,6 @@ let currRev = {};
  * @api private
  */
 
-function match(prefix, path) {
-	// does not match prefix at all
-	if (0 != path.indexOf(prefix)) return false;
-
-	var newPath = path.replace(prefix, "") || "/";
-	var trailingSlash = "/" == prefix.slice(-1);
-	if (trailingSlash) return newPath;
-
-	// `/mount` does not match `/mountlkjalskjdf`
-	if ("/" != newPath[0]) return false;
-	return newPath;
-}
-
 function index(ctx, filePath, option = {}) {
 	let dir = path.join(option.root || process.cwd(), filePath || ctx.path);
 	return fs.readdirAsync(dir)
@@ -55,8 +42,7 @@ function index(ctx, filePath, option = {}) {
 			ctx.body = `<h1>${ dir }</h1>${ parent }` + subNames.map(name => `<a href="${ name }">${ name }</a>`).join("<br>");
 			ctx.type = "html";
 		} else {
-			ctx.path = ctx.path + "/";
-			ctx.redirect(ctx.url);
+			ctx.redirect(ctx.originalUrl.replace(/(\?|$)/, "/$1"));
 		}
 	}).catch(() => undefined);
 }
@@ -127,12 +113,12 @@ let server = {
 		// 开始服务
 		server.initServer();
 	},
-	getConfig: function(proj) {
+	getConfig: async function(proj) {
 
 		// 获取package.json
 		let pkg;
 		try {
-			pkg = fs.readJsonSync(path.join(proj.path, "package.json"));
+			pkg = await fs.readJsonAsync(path.join(proj.path, "package.json"));
 		} catch (ex) {
 			pkg = {};
 		}
@@ -153,14 +139,127 @@ let server = {
 		Object.keys(proj.build).map(cfg => {
 			buildConf[cfg] = normalizePath(proj.build[cfg]);
 		});
+
+		// 读取jspm信息
+		let jspm = pkg.jspm || pkg.directories;
+
+		if (!jspm) {
+			// 尝试根据本地是否有jspm_packages文件夹确定是否jspm项目
+			let stats;
+			try {
+				stats = await fs.statAsync(path.join(proj.path, "jspm_packages"));
+			} catch (ex) {
+				//
+			}
+			// 本地有jspm_packages则确实为jspm项目
+			jspm = stats && stats.isDirectory();
+		}
+
+		if (jspm) {
+
+			// 收集jspm各项配置
+			jspm = Object.assign({}, pkg.jspm, pkg.directories);
+			if (!jspm.dependencies && !jspm.devDependencies) {
+				jspm.dependencies = pkg.dependencies;
+				jspm.devDependencies = pkg.devDependencies
+			}
+			if (!jspm.baseURL) {
+				jspm.baseURL = ".";
+			}
+			if (!jspm.packages) {
+				jspm.packages = path.posix.join(jspm.baseURL, "jspm_packages");
+			}
+			jspm.configFile = pkg.configFile || "config.js";
+			buildConf.jspm = jspm;
+		}
+
 		buildConf.path = proj.path;
-		buildConf.name = proj.name;
 
 		// 修正buildConf.server的格式，字符串前后加上`/`
 		if (buildConf.server) {
 			buildConf.server = buildConf.server.replace(/^\/*/, "/").replace(/\/*$/, "/");
 		}
+
 		return buildConf;
+	},
+	runProj: async function(ctx, buildConf) {
+		let reMatch = new RegExp(buildConf.server.replace(/^\/*/, "/").replace(/\/*$/, "(?:@(.+?))?/"));
+		if (!reMatch.test(ctx.path)) {
+			return;
+		}
+
+		let ver = RegExp.$1;
+		let newPath = RegExp.rightContext.replace(/^\/*/, "/");
+
+		ctx.path = newPath;
+
+		if (ver) {
+			// 代码库分支切换功能
+			await checkout(buildConf.path, ver);
+		}
+
+		// 非压缩文件，执行gulp
+		if (!/\Wmin\.\w+$/.test(newPath) && !buildConf.jspm) {
+
+			let error = null;
+
+			// koa-gulp插件
+			let callgulp = koa_gulp(buildConf.src, function() {
+				let processors;
+				if (/\.(?:s?css|less)$/i.test(ctx.path)) {
+					processors = require("../../lib/processors-style")(ctx.path);
+				} else if (/\.(?:jsx?|es\d*|babel)$/i.test(ctx.path)) {
+					processors = require("../../lib/processors-script")(ctx.path);
+				} else {
+					return;
+				}
+
+				// gulp.src函数所需参数
+				return {
+					allowEmpty: true,
+					cwd: buildConf.path,
+					base: path.posix.join(buildConf.path, buildConf.src),
+					processors,
+				};
+			});
+
+			// 执行gulp
+			await callgulp(ctx).catch(e => {
+				if (error) {
+					error.push(e);
+				} else {
+					error = [e];
+				}
+
+				console.error(e.stack || e);
+			});
+
+			// 向GUI汇报审查报告信息
+			if (error || ctx.status !== 404) {
+				reporter.update(projectManger.projects[buildConf.path], {
+					[path.posix.join(buildConf.src, newPath)]: error
+				});
+			}
+
+			if (error && ctx.app.env === "development") {
+				ctx.status = 500;
+				ctx.message = error.map(error => String(error.message || error)).join(" ");
+			}
+		}
+		if (ctx.status === 404) {
+			let rootDir = path.posix.join(buildConf.path, buildConf.src);
+			// 静态文件服务
+			await send(ctx, newPath, {
+				root: rootDir,
+			});
+
+			if (ctx.app.env === "development" && !ctx.body) {
+				// 文件索引页面
+				await index(ctx, newPath, {
+					root: rootDir
+				});
+			}
+		}
 	},
 	creatServer: function() {
 		let app = new Koa();
@@ -186,115 +285,28 @@ let server = {
 			let rawPath = ctx.path;
 
 			// 读取各个项目的配置
-			let projs = Object.keys(projectManger.projects).map(proj => {
+			let buildInfos = await Promise.all(Object.keys(projectManger.projects).map(proj => {
 				proj = projectManger.projects[proj];
 
 				if (!proj.build.server) {
 					return;
+				} else {
+					return server.getConfig(proj);
 				}
-
-				return {
-					info: proj,
-					buildConf: server.getConfig(proj)
-				};
-			}).filter(proj => proj && proj.buildConf);
-
-			// 查找远程地址配置与url相符的项目页
-			let proj = projs.map(({
-				buildConf
-			}) => {
-				let serverRoot = buildConf.server;
-				let ver;
-				var newPath = match(serverRoot, decodeURIComponent(rawPath).replace(/\/?@([^\/]+)/g, (s, v) => {
-					ver = v;
-					return "";
-				}));
-
-				if (newPath) {
-					return async() => {
-						ctx.path = newPath;
-
-						if (ver) {
-							await checkout(buildConf.path, ver);
-						}
-
-						// 非压缩文件，执行gulp
-						if (!/\Wmin\.\w+$/.test(newPath)) {
-
-							let error = null;
-
-							// koa-gulp插件
-							let callgulp = koa_gulp(buildConf.src, function() {
-								let processors;
-								if (/\.(?:s?css|less)$/i.test(ctx.path)) {
-									processors = require("../../lib/processors-style")(ctx.path);
-								} else if (/\.(?:jsx?|es\d*|babel)$/i.test(ctx.path)) {
-									processors = require("../../lib/processors-script")(ctx.path);
-								} else {
-									return;
-								}
-
-								// gulp.src函数所需参数
-								return {
-									allowEmpty: true,
-									cwd: buildConf.path,
-									base: path.posix.join(buildConf.path, buildConf.src),
-									processors,
-								};
-							});
-
-							// 执行gulp
-							await callgulp(ctx).catch(e => {
-								if (error) {
-									error.push(e);
-								} else {
-									error = [e];
-								}
-
-								console.error(e.stack || e);
-							});
-
-							if (error || ctx.body) {
-								reporter.update(projectManger.projects[buildConf.path], {
-									[path.posix.join(buildConf.src, newPath)]: error
-								});
-							}
-
-							if (error && ctx.app.env === "development") {
-								ctx.status = 500;
-								ctx.message = error.map(error => String(error.message || error)).join(" ");
-							}
-						}
-						if (!ctx.body) {
-							let rootDir = path.posix.join(buildConf.path, buildConf.src);
-							// 静态文件服务
-							await send(ctx, newPath, {
-								root: rootDir
-							});
-
-							if (ctx.app.env === "development" && !ctx.body) {
-								// 文件索引页面
-								await index(ctx, newPath, {
-									root: rootDir
-								});
-							}
-						}
-					};
-				}
-			}).filter(proj => proj);
+			}).filter(proj => proj));
 
 			// 尝试各项目配置
-			if (proj && proj.length) {
-				for (let i = 0; i < proj.length && !ctx.body; i++) {
-					await proj[i]();
+			if (buildInfos && buildInfos.length) {
+				for (let i = 0; i < buildInfos.length && ctx.status === 404; i++) {
+					await server.runProj(ctx, buildInfos[i]);
 				}
 				ctx.path = rawPath;
 			}
 			await next();
 
 			// 首页，显示对各个项目的索引页面
-			if (!ctx.body && ctx.path === "/") {
-				ctx.body = projs.map(proj => `<a href="${ proj.buildConf.server }">${ proj.info.name }</a>`).join("<br>");
+			if (ctx.status === 404 && ctx.path === "/") {
+				ctx.body = buildInfos.map(buildInfo => `<a href="${ buildInfo.server }">${ buildInfo.server }</a>`).join("<br>");
 			}
 		});
 

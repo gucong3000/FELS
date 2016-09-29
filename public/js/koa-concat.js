@@ -145,7 +145,7 @@ function combo(option) {
 	return middleware;
 }
 
-async function loopAsync(arr, callback){
+async function loopAsync(arr, callback) {
 	for (let i = 0; i < arr.length; i++) {
 		arr[i] = await callback(arr[i]);
 	}

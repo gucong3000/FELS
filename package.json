@@ -65,7 +65,8 @@
     "rcloader": "^0.2.0",
     "serve-favicon": "^2.3.0",
     "through2": "^2.0.1",
-    "uglify-js": "^2.6.2"
+    "uglify-js": "^2.6.2",
+    "vinyl-fs": "^2.4.3"
   },
   "description": "Front End Live Stream",
   "devDependencies": {
@@ -74,6 +75,7 @@
     "cosmiconfig": "^1.1.0",
     "csscomb": "^4.0.0-alpha",
     "editorconfig": "^0.13.2",
+    "electron-prebuilt": "^1.4.1",
     "end-of-stream": "^1.1.0",
     "eslint": "^3.5.0",
     "eslint-config-airbnb": "^10.0.1",
