@@ -1,12 +1,14 @@
 "use strict";
 const Koa = require("koa");
 const send = require("koa-send");
+const jspm = require("jspm");
 const concat = require("./koa-concat");
 const reporter = require("./reporter");
-const koa_gulp = require("./koa-vinyl");
+const koa_vinyl = require("./koa-vinyl");
 const fs = require("fs-extra-async");
 const path = require("path");
-const livereload = require("koa-livereload");
+const koa_livereload = require("koa-livereload");
+const livereload = require("livereload");
 const {
 	remote,
 } = require("electron");
@@ -15,20 +17,8 @@ let wraper;
 let projectManger;
 let currRev = {};
 
-/**
- * Check if `prefix` satisfies a `path`.
- * Returns the new path.
- *
- * match('/images/', '/lkajsldkjf') => false
- * match('/images', '/images') => /
- * match('/images/', '/images') => false
- * match('/images/', '/images/asdf') => /asdf
- *
- * @param {String} prefix
- * @param {String} path
- * @return {String|Boolean}
- * @api private
- */
+const jspmPackagePath = path.resolve(__dirname, "../jspm_packages/");
+jspm.setPackagePath(process.cwd());
 
 function index(ctx, filePath, option = {}) {
 	let dir = path.join(option.root || process.cwd(), filePath || ctx.path);
@@ -158,16 +148,15 @@ let server = {
 		if (jspm) {
 
 			// 收集jspm各项配置
-			jspm = Object.assign({}, pkg.jspm, pkg.directories);
-			if (!jspm.dependencies && !jspm.devDependencies) {
-				jspm.dependencies = pkg.dependencies;
-				jspm.devDependencies = pkg.devDependencies
+			jspm = typeof pkg.jspm === "object" ? pkg.jspm : pkg;
+
+			let directories = jspm.directories || (jspm.directories = {});
+
+			if (!directories.baseURL) {
+				directories.baseURL = ".";
 			}
-			if (!jspm.baseURL) {
-				jspm.baseURL = ".";
-			}
-			if (!jspm.packages) {
-				jspm.packages = path.posix.join(jspm.baseURL, "jspm_packages");
+			if (!directories.packages) {
+				directories.packages = path.posix.join(directories.baseURL, "jspm_packages");
 			}
 			jspm.configFile = pkg.configFile || "config.js";
 			buildConf.jspm = jspm;
@@ -183,15 +172,13 @@ let server = {
 		return buildConf;
 	},
 	runProj: async function(ctx, buildConf) {
-		let reMatch = new RegExp(buildConf.server.replace(/^\/*/, "/").replace(/\/*$/, "(?:@(.+?))?/"));
+		let reMatch = new RegExp(buildConf.server.replace(/^\/*/, "^/").replace(/\/*$/, "(?:@(.+?))?/"));
 		if (!reMatch.test(ctx.path)) {
 			return;
 		}
 
 		let ver = RegExp.$1;
 		let newPath = RegExp.rightContext.replace(/^\/*/, "/");
-
-		ctx.path = newPath;
 
 		if (ver) {
 			// 代码库分支切换功能
@@ -203,8 +190,8 @@ let server = {
 
 			let error = null;
 
-			// koa-gulp插件
-			let callgulp = koa_gulp(buildConf.src, function() {
+			// 执行gulp
+			await koa_vinyl(ctx, path.posix.join(buildConf.src, newPath), function() {
 				let processors;
 				if (/\.(?:s?css|less)$/i.test(ctx.path)) {
 					processors = require("../../lib/processors-style")(ctx.path);
@@ -221,17 +208,16 @@ let server = {
 					base: path.posix.join(buildConf.path, buildConf.src),
 					processors,
 				};
-			});
-
-			// 执行gulp
-			await callgulp(ctx).catch(e => {
+			}).catch(ex => {
 				if (error) {
-					error.push(e);
+					error = error.concat(ex);
+				} else if (Array.isArray(ex)) {
+					error = ex;
 				} else {
-					error = [e];
+					error = [ex];
 				}
 
-				console.error(e.stack || e);
+				console.error(ex);
 			});
 
 			// 向GUI汇报审查报告信息
@@ -247,7 +233,7 @@ let server = {
 			}
 		}
 		if (ctx.status === 404) {
-			let rootDir = path.posix.join(buildConf.path, buildConf.src);
+			let rootDir = buildConf.src ? path.posix.join(buildConf.path, buildConf.src) : buildConf.path;
 			// 静态文件服务
 			await send(ctx, newPath, {
 				root: rootDir,
@@ -274,7 +260,12 @@ let server = {
 
 		// 浏览器自动刷新
 		if (app.env === "development") {
-			app.use(livereload());
+			app.use(koa_livereload());
+			if (!server.livereload) {
+				server.livereload = livereload.createServer({
+					debug: true,
+				});
+			}
 		}
 
 		// http请求合并
@@ -305,8 +296,24 @@ let server = {
 			await next();
 
 			// 首页，显示对各个项目的索引页面
-			if (ctx.status === 404 && ctx.path === "/") {
-				ctx.body = buildInfos.map(buildInfo => `<a href="${ buildInfo.server }">${ buildInfo.server }</a>`).join("<br>");
+			if (ctx.status === 404) {
+				if (ctx.path === "/") {
+					ctx.body = buildInfos.map(buildInfo => `<a href="${ buildInfo.server }">${ buildInfo.server }</a>`).join("<br>");
+				} else {
+					await server.runProj(ctx, {
+						jspm: {},
+						path: jspmPackagePath,
+						server: "/jspm_packages/",
+					});
+				}
+				if (ctx.status === 404 && /^\/jspm_packages\/(github|npm)\/(.+?)@(.+?)(?:\.\w+|\/.+)$/.test(ctx.path)) {
+					await jspm.install({
+						[RegExp.$2]: `${ RegExp.$1 }:${ RegExp.$2 }@${ RegExp.$3 }`,
+					}, {
+						force: true,
+					});
+					ctx.redirect(ctx.originalUrl);
+				}
 			}
 		});
 

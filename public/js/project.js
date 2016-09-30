@@ -1,8 +1,10 @@
 "use strict";
 const path = require("path");
 const fs = require("fs-extra-async");
+const chokidar = require("chokidar");
 const reporter = require("./reporter");
 const config = require("./config-util");
+const server = require("./server");
 const app = require("./app");
 const wrap = document.querySelector("section");
 const {
@@ -21,6 +23,7 @@ const rcPath = {
 const initFns = ["hook", "editorconfig", "eslint", "stylelint"].map(initPlan);
 let projectmanger;
 let build;
+let watcher;
 
 const project = {
 	init() {
@@ -62,7 +65,7 @@ const project = {
 		});
 	},
 
-	initProj(projectPath, data) {
+	initProj: async(projectPath, data) => {
 		project.curr = data;
 		data.path = projectPath;
 		if (!data.name) {
@@ -76,31 +79,65 @@ const project = {
 			wrap.classList.add(type);
 		});
 
-		project.getReport();
-		project.getBuild();
+		await project.getReport();
+		await project.getBuild();
+		project.initWatcher();
 		initFns.forEach(fn => fn(projectPath, data));
 	},
 
-	getBuild() {
+	initWatcher() {
+		if (watcher) {
+			watcher.close();
+		}
+
+		let srcPath = path.join(project.curr.path, project.curr.build.src);
+		watcher = chokidar.watch(srcPath, {
+			ignoreInitial: true,
+			ignored: /[\/\\](?:node_modules|jspm_packages|bower_components|\.[^\/\\]*)(?:[\/\\]|$)/,
+		});
+
+		function refresh(path, exists) {
+			if (exists) {
+				if (path.indexOf(process.cwd()) === 0) {
+					location.reload();
+				} else if (server.livereload) {
+					server.livereload.refresh(path);
+				}
+			} else {
+				reporter.update(project.curr);
+			}
+		}
+
+		watcher
+			.on("add", path => refresh(path, true))
+			.on("change", path => refresh(path, true))
+			.on("unlink", path => refresh(path));
+	},
+
+	getBuild: async() => {
 		build.reset();
 		let options = project.curr.build;
 		if (!options) {
 			options = {};
 			project.curr.build = options;
 		}
-		fs.readJson(path.join(project.curr.path, "package.json"), (error, pkg) => {
-			Array.from(build.elements).forEach(elem => {
-				if (elem.name) {
-					if (!pkg) {
-						elem.value = elem.value.replace(/\/?\$\{\s*pkg\b.*?\}/g, "");
-					}
-					if (elem.name in options) {
-						elem.value = options[elem.name];
-					} else {
-						options[elem.name] = elem.value;
-					}
+		let pkg;
+		try {
+			pkg = await fs.readJsonAsync(path.join(project.curr.path, "package.json"));
+		} catch (ex) {
+			//
+		}
+		Array.from(build.elements).forEach(elem => {
+			if (elem.name) {
+				if (!pkg) {
+					elem.value = elem.value.replace(/\/?\$\{\s*pkg\b.*?\}/g, "");
 				}
-			});
+				if (elem.name in options) {
+					elem.value = options[elem.name];
+				} else {
+					options[elem.name] = elem.value;
+				}
+			}
 		});
 		projectmanger.save();
 	},

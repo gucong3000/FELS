@@ -680,7 +680,7 @@ function fileUploader(configs) {
 	};
 }
 
-// 目录遍历，排除.*、node_modules、*.log
+// 目录遍历，排除.*、node_modules
 function fsWalker(rootDir) {
 	rootDir = path.resolve(rootDir);
 
