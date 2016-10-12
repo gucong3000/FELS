@@ -186,7 +186,7 @@ let server = {
 		}
 
 		// 非压缩文件，执行gulp
-		if (!/\Wmin\.\w+$/.test(newPath) && !buildConf.jspm) {
+		if (!/\Wmin\.\w+$/.test(newPath)) {
 
 			let error = null;
 
@@ -239,11 +239,42 @@ let server = {
 				root: rootDir,
 			});
 
-			if (ctx.app.env === "development" && !ctx.body) {
+			if (ctx.app.env === "development" && ctx.status === 404) {
 				// 文件索引页面
 				await index(ctx, newPath, {
 					root: rootDir
 				});
+			}
+			if (ctx.status === 404 && newPath === "/jspm_packages/jspm.config.js") {
+				let baseURL = buildConf.server.replace(/^\/*/, "$1").replace(/\/*$/, ver ? `@${ ver }/` : "/");
+				baseURL = `System.scriptSrc.replace(/^(\\w+\:\\/+[^/]+\\/).*$/,"${ baseURL }")`
+				let config = {
+					baseURL: "",
+					defaultJSExtensions: true,
+					transpiler: "babel",
+					babelOptions: {
+						"optional": [
+							"runtime",
+							"optimisation.modules.system"
+						]
+					},
+					paths: {
+						"github:*": "/jspm_packages/github/*",
+						"npm:*": "/jspm_packages/npm/*"
+					},
+					map: {
+						"babel": "npm:babel-core@5.8.38",
+						"babel-runtime": "npm:babel-runtime@5.8.38",
+					}
+				};
+
+				if (ctx.app.env === "development") {
+					config = JSON.stringify(config, 0, "\t");
+				} else {
+					config = JSON.stringify(config);
+				}
+				config = config.replace(/((['"])baseURL\2\:\s*)(['"]).*?\3/, (s, prefix) => prefix + baseURL);
+				ctx.body = `System.config(${ config });`;
 			}
 		}
 	},

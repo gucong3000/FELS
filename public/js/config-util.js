@@ -121,15 +121,14 @@ const fileCache = {};
 
 const util = {
 	cosmiconfig(baseDir, option) {
-		option.cwd = path.normalize(baseDir);
+		baseDir = path.normalize(baseDir);
 		option = Object.assign({
-			stopDir: option.cwd,
-			cwd: option.cwd,
+			stopDir: baseDir,
 			rcExtensions: true,
 			argv: false,
 		}, option);
 
-		return cosmiconfig(option.moduleName, option)
+		return cosmiconfig(option.moduleName, option).load(baseDir)
 
 		.catch(() => undefined)
 

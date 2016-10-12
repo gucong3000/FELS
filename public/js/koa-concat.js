@@ -10,27 +10,36 @@ module.exports = combo;
 const path = require("path").posix;
 const compose = require("koa-compose");
 const BufferStreams = require("bufferstreams");
+const etag = require("etag");
+
 
 // 解析ctx.body内容，统一读取出Buffer对象
 function getContents(val) {
-	if ("string" == typeof val) {
-		// string
-		return Buffer.from(val);
-	} else if (Buffer.isBuffer(val)) {
-		// Buffer
-		return val;
-	} else if ("function" == typeof val.pipe) {
-		// Stream
-		return new Promise(resolve => {
-			val.pipe(new BufferStreams((err, buf, done) => {
-				done();
-				resolve(buf);
-			}));
-		});
-	} else if (val !== null) {
-		return Buffer.from(JSON.stringify(val));
+	if (val != null) {
+		if (Buffer.isBuffer(val)) {
+			// Buffer
+			return val;
+		} else if ("string" == typeof val) {
+			// string
+			return Buffer.from(val);
+		} else if ("function" == typeof val.pipe) {
+			// Stream
+			return new Promise((resolve, reject) => {
+				val.pipe(new BufferStreams((err, buf, done) => {
+					done(err);
+					if (err) {
+						reject(err);
+					} else {
+						resolve(buf);
+					}
+				}));
+			});
+		}
 	}
-	return val;
+	val = JSON.stringify(val);
+	if (val) {
+		return Buffer.from(val);
+	}
 }
 
 function combo(option) {
@@ -67,16 +76,19 @@ function combo(option) {
 
 			let originalResponse = ctx.response;
 			let header = Object.assign({}, originalResponse.header);
-			let lastModified;
-			let type;
+			let lastModified = 0;
+
+			delete ctx.req.headers["if-modified-since"];
+			delete ctx.req.headers["if-none-match"];
 
 			// 按combo信息，重新执行后续中间件
-			return loopAsync(combo, (url) => {
+			return loopAsync(combo, url => {
 				ctx.url = url;
 
 				// 建立新的response对象
 				const response = Object.create(ctx.app.response);
 				response.res = new originalResponse.res.constructor(ctx.req);
+				response.res.statusCode = 404;
 				ctx.response = response;
 
 				// 使用新response执行后续中间件
@@ -86,16 +98,12 @@ function combo(option) {
 
 				.then(contents => {
 					// 保存body数据
-					response._body = contents || `\n/* ${ url }\t${ response.message || response.status } */\n`;
+					response._body = contents || Buffer.from(response.message);
 					// 保存响应头
 					Object.assign(header, response.header);
 					// 保存最后修改时间
 					if (response.lastModified > lastModified) {
 						lastModified = response.lastModified;
-					}
-					// Content-Type
-					if (!type && response.type) {
-						type = response.type;
 					}
 					return response;
 				});
@@ -105,7 +113,6 @@ function combo(option) {
 				// 删除不需要的header头
 				[
 					"Content-Length",
-					"Content-Type",
 					"ETag",
 					"Last-Modified",
 				].forEach(type => {
@@ -115,27 +122,31 @@ function combo(option) {
 
 				// 恢复原始的url与response对象
 				ctx.url = originalUrl;
-				ctx.response = originalResponse;
-				originalResponse.set(header);
 
-				// 如果有至少一个response含有etag，则生成etag
-				if (response.some(response => response.etag)) {
-					originalResponse.etag = response.map(response => response.etag || crypto.createHash("md5").update(response._body).digest("hex")).join(option.sep);
+				// 如果有至少一个response的返回值不正常，则发送这个response
+				if (!response.some(response => {
+					if (response.status !== 200) {
+						ctx.response = response;
+						return true;
+					}
+				})) {
+
+					ctx.response = originalResponse;
+					originalResponse.set(header);
+
+					// 如果有至少一个response含有etag，则生成etag
+					if (response.some(response => response.etag)) {
+						originalResponse.etag = response.map(response => response.etag || etag(response._body)).join(option.sep);
+					}
+
+					// 最后修改时间
+					if (lastModified) {
+						originalResponse.lastModified = lastModified;
+					}
+
+					// 收集其他中间件对ctx.body写入的数据
+					originalResponse.body = Buffer.concat(response.map(response => response._body));
 				}
-
-				// 最后修改时间
-				if (lastModified) {
-					originalResponse.lastModified = lastModified;
-				}
-
-				// Content-Type
-				if (type) {
-					response.type = type;
-				}
-
-				// 收集其他中间件对ctx.body写入的数据
-				originalResponse.body = Buffer.concat(response.map(response => response._body));
-
 			});
 		} else {
 			// url中没有请求合并信息，继续执行后续中间件
@@ -150,5 +161,4 @@ async function loopAsync(arr, callback) {
 		arr[i] = await callback(arr[i]);
 	}
 	return await Promise.all(arr);
-
 }

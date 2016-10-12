@@ -26,31 +26,39 @@ function path2globs(file) {
 let defaultCache = {};
 
 function callgulp(globs, options) {
-	if (!Array.isArray(options.processors)) {
-		throw new Error("Please provide array of gulp processors!");
-	}
+	return Promise.resolve(options.processors)
 
-	globs = path2globs(globs);
+	.then(processors => {
+		if (!Array.isArray(processors)) {
+			throw new Error("Please provide array of gulp processors!");
+		}
+		return Promise.all(processors)
+	})
 
+	.then(processors => {
+		processors = processors.filter(processor => processor);
 
-	return new Promise((resolve, reject) => {
-		let files = [];
+		globs = path2globs(globs);
 
-		// 将gulp插件作为数组形式运行
-		options.processors.filter(processor => processor).reduce(function(stream, processor) {
-			return stream.pipe(processor);
-		}, vfs.src(globs, options).pipe(plumber(reject))).pipe(through.obj({
-			objectMode: true
-		}, function(file, encoding, done) {
-			files.push(file);
-			done(null, file);
-		}, function(done) {
-			// 流程结束后信息汇总
-			process.nextTick(() => {
-				done();
-				resolve(files);
-			});
-		}));
+		return new Promise((resolve, reject) => {
+			let files = [];
+
+			// 将gulp插件作为数组形式运行
+			processors.filter(processor => processor).reduce(function(stream, processor) {
+				return stream.pipe(processor);
+			}, vfs.src(globs, options).pipe(plumber(reject))).pipe(through.obj({
+				objectMode: true
+			}, function(file, encoding, done) {
+				files.push(file);
+				done(null, file);
+			}, function(done) {
+				// 流程结束后信息汇总
+				process.nextTick(() => {
+					done();
+					resolve(files);
+				});
+			}));
+		});
 	});
 }
 
@@ -84,13 +92,18 @@ async function koa_vinyl(ctx, filePath, options) {
 	if (file && !file.isNull()) {
 
 		ctx.type = path.extname(file.relative);
-		let mtime = file.stat && file.stat.mtime.toUTCString();
+		let mtime;
+		try {
+			mtime = file.stat.mtime.toUTCString();
+		} catch (ex) {
+			//
+		}
 
 		if (mtime && !ctx.response.get("Last-Modified")) {
 			ctx.set("Last-Modified", mtime);
 		}
 
-		if (since && mtime && since === mtime) {
+		if (ctx.app.env !== "development" && since && mtime && since === mtime) {
 			ctx.status = 304;
 		} else {
 			ctx.body = file.contents;
