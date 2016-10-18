@@ -1,6 +1,6 @@
 "use strict";
 const child_process = require("child_process");
-const electron = require("electron-prebuilt");
+const electron = require("electron");
 const readyMsg = "app-ready";
 let child = child_process.spawn(electron, [require.resolve("../lib/gui"), "--wait-ready-signal"], {
 	detached: true,

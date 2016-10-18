@@ -191,7 +191,7 @@ let server = {
 			let error = null;
 
 			// 执行gulp
-			await koa_vinyl(ctx, path.posix.join(buildConf.src, newPath), function() {
+			await koa_vinyl(ctx, path.posix.join(buildConf.src, newPath.replace(/^\/+/, "")), function() {
 				let processors;
 				if (/\.(?:s?css|less)$/i.test(ctx.path)) {
 					processors = require("../../lib/processors-style")(ctx.path);

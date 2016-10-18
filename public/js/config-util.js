@@ -136,7 +136,7 @@ const util = {
 			if (!result || !result.filepath || !result.config) {
 				result = {
 					config: {},
-					filepath: path.join(option.cwd, "." + option.moduleName + "rc.json"),
+					filepath: path.join(baseDir, "." + option.moduleName + "rc.json"),
 				};
 
 				process.nextTick(() => result.write(result.config));
