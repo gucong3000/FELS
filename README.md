@@ -13,6 +13,7 @@ FELS为您提供了一套由gulp驱动的动态开发环境，解决团队开发
 ```bash
 sudo npm config set sass_binary_site https://npm.taobao.org/mirrors/node-sass --global
 sudo npm config set phantomjs_cdnurl https://npm.taobao.org/mirrors/phantomjs --global
+sudo npm config set registry https://registry.npm.taobao.org --global
 sudo npm install -g cnpm --registry=https://registry.npm.taobao.org
 sudo cnpm i -g gulp-cli
 git clone https://github.com/gucong3000/FELS.git
