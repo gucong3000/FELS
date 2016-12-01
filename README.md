@@ -11,6 +11,7 @@ FELS为您提供了一套由gulp驱动的动态开发环境，解决团队开发
 1.   在你的工作目录执行以下命令：
 
 ```bash
+ELECTRON_MIRROR=http://npm.taobao.org/mirrors/electron/
 sudo npm config set sass_binary_site https://npm.taobao.org/mirrors/node-sass --global
 sudo npm config set phantomjs_cdnurl https://npm.taobao.org/mirrors/phantomjs --global
 sudo npm config set registry https://registry.npm.taobao.org --global
