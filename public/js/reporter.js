@@ -33,10 +33,10 @@ function toHTML(base, relative, errors) {
 	errors = errors.map(error => {
 		let message = [];
 		if (error.lineNumber) {
-			message.push(`<strong>[${ error.lineNumber }:${ error.columnNumber || 0 }]</strong>`)
+			message.push(`<strong>[${ error.lineNumber }:${ error.columnNumber || 0 }]</strong>`);
 		}
 
-		message.push(`<span>${ error.message }</span>`)
+		message.push(`<span>${ error.message }</span>`);
 
 		let subMsg = [];
 		if (error.plugin) {
@@ -82,11 +82,11 @@ function severity2num(severity) {
 	if (!severity) {
 		severity = 0;
 	} else if (severity === "error") {
-		severity = 1
+		severity = 1;
 	} else if (severity === "warn") {
-		severity = 2
+		severity = 2;
 	} else {
-		severity = 3
+		severity = 3;
 	}
 	return severity;
 }
@@ -99,7 +99,7 @@ function severity2num(severity) {
 function sortError(errors) {
 	return errors.sort(function(err1, err2) {
 		if (err1.severity !== err2.severity) {
-			return severity2num(err1.severity) - severity2num(err2.severity)
+			return severity2num(err1.severity) - severity2num(err2.severity);
 		} else if (err1.lineNumber === err2.lineNumber) {
 			return (err1.columnNumber || 0) - (err1.columnNumber || 0);
 		} else {
@@ -154,13 +154,17 @@ let reporter = {
 		let paths = Object.keys(data);
 
 		// 过滤掉本地不存在的文件
-		let pathStat = await Promise.all(paths.map(filterPath => {
-			return fs.statAsync(path.resolve(proj.path, filterPath))
+		paths = await Promise.all(paths.map(file => {
+			return fs.statAsync(path.resolve(proj.path, file))
 
-			.catch(() => false);
+			.then(stat => stat.isFile())
+
+			.catch(() => false)
+
+			.then(isFile=> isFile ? file : null);
 		}));
 
-		paths = paths.filter((path, i) => pathStat[i] && pathStat[i].isFile());
+		paths = paths.filter(Boolean);
 
 		// 文件路径转为相对路径
 		let dataRelativePath = {};

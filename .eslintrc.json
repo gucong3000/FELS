@@ -38,6 +38,13 @@
 				"avoidEscape": true
 			}
 		],
+		"semi": [
+			"error",
+			"always",
+			{
+				"omitLastInOneLineBlock": false
+			}
+		],
 		"valid-jsdoc": [
 			"error",
 			{

@@ -196,16 +196,32 @@ require("./js/app");
 							</label>
 						</fieldset>
 						<fieldset>
+							<legend>统一分号风格</legend>
+							<select name="rules.semi[0]">
+								<option value="off">关闭</option>
+								<option value="warn">警告</option>
+								<option value="error" selected>错误</option>
+							</select>
+							<select name="rules.semi[1]">
+								<option value="always" selected>强制使用分号</option>
+								<option value="never">强制不使用分号</option>
+							</select>
+							<label>
+								<input type="checkbox" name="rules.semi[2].omitLastInOneLineBlock">
+								单行代码块中最后一项忽略
+							</label>
+						</fieldset>
+						<fieldset>
 							<legend>强制使用有效的 JSDoc 注释</legend>
 							<select name="rules.valid-jsdoc[0]">
 								<option value="off">关闭</option>
 								<option value="warn" selected>警告</option>
 								<option value="error">错误</option>
 							</select>
-							<p>
+							<label>
 								<input type="checkbox" name="rules.valid-jsdoc[1].requireReturn">
 								必须写 @return 或 @returns
-							</p>
+							</select>
 						</fieldset>
 						<fieldset>
 							<legend>禁用 console</legend>
