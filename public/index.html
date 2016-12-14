@@ -212,6 +212,46 @@ require("./js/app");
 							</label>
 						</fieldset>
 						<fieldset>
+							<legend>代码块前空格</legend>
+							<select name="rules.space-before-blocks[0]">
+								<option value="off">关闭</option>
+								<option value="warn">警告</option>
+								<option value="error" selected>错误</option>
+							</select>
+							<select name="rules.space-before-blocks[1]">
+								<option value="always" selected>强制空格</option>
+								<option value="never">强制不空格</option>
+							</select>
+						</fieldset>
+						<fieldset>
+							<legend>逗号前后空格</legend>
+							<select name="rules.comma-spacing[0]">
+								<option value="off">关闭</option>
+								<option value="warn">警告</option>
+								<option value="error" selected>错误</option>
+							</select>
+							<label>
+								<input type="checkbox" name="rules.comma-spacing[1].before">
+								逗号前空格
+							</label>
+							<label>
+								<input type="checkbox" name="rules.comma-spacing[1].after" checked>
+								逗号后空格
+							</label>
+						</fieldset>
+						<fieldset>
+							<legend>注释首字空格</legend>
+							<select name="rules.spaced-comment[0]">
+								<option value="off">关闭</option>
+								<option value="warn">警告</option>
+								<option value="error" selected>错误</option>
+							</select>
+							<select name="rules.spaced-comment[1]">
+								<option value="always" selected>强制空格</option>
+								<option value="never">强制不空格</option>
+							</select>
+						</fieldset>
+						<fieldset>
 							<legend>强制使用有效的 JSDoc 注释</legend>
 							<select name="rules.valid-jsdoc[0]">
 								<option value="off">关闭</option>
