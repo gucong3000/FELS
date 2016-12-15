@@ -98,7 +98,7 @@ let server = {
 		// 表单元素发生变化是，保存配置
 		wraper.onchange = (e) => {
 			server.set(e.target.name, e.target.value);
-		}
+		};
 
 		// 开始服务
 		server.initServer();
@@ -247,7 +247,7 @@ let server = {
 			}
 			if (ctx.status === 404 && newPath === "/jspm_packages/jspm.config.js") {
 				let baseURL = buildConf.server.replace(/^\/*/, "$1").replace(/\/*$/, ver ? `@${ ver }/` : "/");
-				baseURL = `System.scriptSrc.replace(/^(\\w+\:\\/+[^/]+\\/).*$/,"${ baseURL }")`
+				baseURL = `System.scriptSrc.replace(/^(\\w+\:\\/+[^/]+\\/).*$/,"${ baseURL }")`;
 				let config = {
 					baseURL: "",
 					defaultJSExtensions: true,
@@ -278,7 +278,7 @@ let server = {
 			}
 		}
 	},
-	creatServer: function() {
+	creatServer: async function() {
 		let app = new Koa();
 
 		// 日志
@@ -348,6 +348,26 @@ let server = {
 			}
 		});
 
+
+		// 镜像服务
+		app.use(async(ctx, next) => {
+			next();
+			var rootDir = path.join(__dirname, "../mirrors", ctx.hostname);
+			if (ctx.status === 404) {
+				// 静态文件镜像服务
+				await send(ctx, ctx.path, {
+					root: rootDir,
+				});
+			}
+
+			if (ctx.status === 404) {
+				// 文件索引页面
+				await index(ctx, ctx.path, {
+					root: rootDir
+				});
+			}
+		});
+
 		let httpServer = require("http").createServer(app.callback());
 		return httpServer;
 	},
@@ -369,7 +389,7 @@ let server = {
 			dialog.showErrorBox(title || "监听网络端口时出错", message);
 		}, 200);
 	},
-	initServer: function() {
+	initServer: async function() {
 		//
 		let msgWrap = wraper.querySelector("p");
 		let serObj = server.server;
@@ -377,7 +397,8 @@ let server = {
 			serObj.close();
 		}
 		let port = server.get("port");
-		serObj = server.creatServer();
+		serObj = await server.creatServer();
+
 		if (!serObj) {
 			msgWrap.innerHTML = "未启动，请至少为一个项目配置编译服务。";
 			return;
