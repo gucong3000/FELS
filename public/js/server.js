@@ -286,7 +286,7 @@ let server = {
 			const start = new Date();
 			await next();
 			const ms = new Date() - start;
-			console.log(`${ ctx.method } ${ decodeURIComponent(ctx.url) } - ${ ms }ms`);
+			console.log(`${ ctx.method } ${ ctx.hostname } ${ decodeURIComponent(ctx.url) } - ${ ms }ms`);
 		});
 
 		// 浏览器自动刷新

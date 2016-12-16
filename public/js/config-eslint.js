@@ -7,8 +7,6 @@ function fixCfg(cfg) {
 		cfg.extends = ["eslint:recommended"];
 	}
 
-	cfg.parser = "babel-eslint";
-
 	if (!cfg.env) {
 		cfg.env = {
 			browser: true,
