@@ -1,4 +1,4 @@
-"use strict";
+
 var gulp = require("gulp");
 var path = require("path");
 var fs = require("fs-extra-async");
@@ -6,7 +6,7 @@ var gutil = require("gulp-util");
 var through = require("through2");
 var uglifyOpt = {
 
-	//保留IE的jscript条件注释
+	// 保留IE的jscript条件注释
 	preserveComments: (o, info) => {
 		return /@(cc_on|if|else|end|_jscript(_\w+)?)\s/i.test(info.value);
 	}
@@ -70,7 +70,7 @@ function getFile(callback, debugname) {
 		var content;
 		try {
 			content = callback(file.contents.toString(), file);
-		} catch (err) {
+		}catch (err) {
 			return sendError(err);
 		}
 
@@ -79,7 +79,7 @@ function getFile(callback, debugname) {
 				content = Promise.resolve(content);
 			}
 			content.then(sendResult).catch(sendError);
-		} else {
+		}else {
 			cb(null, file);
 		}
 	});
@@ -192,7 +192,7 @@ function jsPipe(stream) {
 			fix: true
 		}));
 
-	} else {
+	}else {
 		stream = stream.pipe(require("gulp-sourcemaps").init())
 
 		// js代码压缩
@@ -304,7 +304,7 @@ function codeBeautify(stream, opts) {
 						// 新代码与老代码是否相同
 						if (newCode.trim() === code.trim()) {
 							delete cacheNotification[filePath];
-						} else {
+						}else {
 
 							// 为新代码文件结尾添加一个空行
 							newCode = newCode.replace(/\n*$/, "\n");
@@ -312,7 +312,7 @@ function codeBeautify(stream, opts) {
 
 								// Promise方式返回新代码
 								resolve(newCode);
-							} else {
+							}else {
 
 								// 将新代码交给气球提示流程
 								opts.newCode = newCode;
@@ -334,13 +334,13 @@ function codeBeautify(stream, opts) {
 		}
 		if (opts.lazy) {
 			lazyResult();
-		} else {
+		}else {
 			return new Promise(lazyResult);
 		}
 	}, opts.title);
 	if (stream) {
 		return stream.pipe(plugin);
-	} else {
+	}else {
 		return plugin;
 	}
 }
@@ -424,7 +424,7 @@ function cssPipe(stream) {
 
 		// CSS代码美化
 		stream = cssBeautify(stream, true);
-	} else {
+	}else {
 
 		// css sourcemaps初始化
 		stream = stream.pipe(require("gulp-sourcemaps").init());
@@ -504,20 +504,20 @@ module.exports = (staticRoot, env) => {
 			// 如果外部请求的文件正好缓存中有，则发送出去，然后清除缓存中的此文件
 			// sourceMap之类情况就是这样，上次请求js时生成的map文件放在缓存中，浏览器下次来取
 			return Promise.resolve(sendFileCache[filePath]);
-		} else if (/[\.\-]min\.\w+$/.test(filePath)) {
+		}else if (/[\.\-]min\.\w+$/.test(filePath)) {
 
 			// 已压缩文件，不作处理
 			return;
-		} else if (/\.js$/i.test(filePath)) {
+		}else if (/\.js$/i.test(filePath)) {
 			pipeFn = jsPipe;
-		} else if (/\.css$/i.test(filePath)) {
+		}else if (/\.css$/i.test(filePath)) {
 			pipeFn = cssPipe;
-		} else if (/\.html?$/i.test(filePath)) {
+		}else if (/\.html?$/i.test(filePath)) {
 			pipeFn = htmlPipe;
-		} else {
+		}else {
 			pipeFn = null;
 		}
-		return fs.readFileAsync(filePath)
+		return fs.readFile(filePath)
 
 		.catch(() => {
 			return null;
@@ -572,7 +572,7 @@ module.exports = (staticRoot, env) => {
 					// 如果获取到的文件正好是外部要获取的文件，则发送给外部
 					if (file.path === filePath) {
 						resolve(file);
-					} else {
+					}else {
 
 						// 如果获取到的文件是sourceMap之类的文件，先放进缓存，等外部下次请求时发送
 						sendFileCache[file.path] = file;
@@ -593,9 +593,9 @@ module.exports = (staticRoot, env) => {
 function getFileSize(file) {
 	if (file.contents && file.contents.length) {
 		return file.contents.length;
-	} else if (file.stat && file.stat.size) {
+	}else if (file.stat && file.stat.size) {
 		return file.stat.size;
-	} else {
+	}else {
 		return 0;
 	}
 }
@@ -651,10 +651,10 @@ function fileUploader(configs) {
 			}, function(err, httpResponse, body) {
 				if (err) {
 					reject(err);
-				} else {
+				}else {
 					try {
 						body = JSON.parse(body);
-					} catch (ex) {
+					}catch (ex) {
 						reject({
 							message: body
 						});
@@ -663,7 +663,7 @@ function fileUploader(configs) {
 					if (body.code === 1000) {
 						body.file = fileVinyl;
 						resolve(body);
-					} else {
+					}else {
 						reject({
 							code: body.code,
 							message: body.info
@@ -708,7 +708,7 @@ function fsWalker(rootDir) {
 
 							// 子对象是个目录，则递归查询
 							subDirs.push(walker(subPath));
-						} else {
+						}else {
 
 							// 子对象是个文件
 							subFiles.push({
@@ -750,7 +750,7 @@ function saveStatus(files, dir, tag) {
 
 	try {
 		filecache = require("./.filecache.json");
-	} catch (ex) {
+	}catch (ex) {
 		filecache = {};
 	}
 
@@ -874,7 +874,7 @@ gulp.task("publish", (cb) => {
 			console.error("获取代码库版本差异出错：", ex.message);
 			return getFsWalker();
 		});
-	} else {
+	}else {
 		getFiles = getFsWalker();
 	}
 
@@ -923,7 +923,7 @@ gulp.task("publish", (cb) => {
 				succCount++;
 				if (bar) {
 					bar.tick(getFileSize(data.file));
-				} else {
+				}else {
 					var newPercent = Math.min(100, Math.round(succCount * 100 / files.length));
 					if (newPercent !== percent) {
 						percent = newPercent;
@@ -937,10 +937,10 @@ gulp.task("publish", (cb) => {
 				if (err && err.code === 1001) {
 					queue.clear();
 					console.error(err.message);
-				} else {
+				}else {
 					if (bar) {
 						bar.tick(getFileSize(err.file));
-					} else {
+					}else {
 						console.error(err.message || err.code || err, err.file ? err.file.relative : "");
 					}
 				}
@@ -959,7 +959,7 @@ gulp.task("publish", (cb) => {
 					});
 					console.error(errors);
 					cb();
-				} else {
+				}else {
 					console.log("上传完毕。");
 					if (program.diff) {
 						saveStatus(files, program.dir, program.diff);
@@ -984,7 +984,7 @@ gulp.task("publish", (cb) => {
 							}
 							cb();
 						});
-					} else {
+					}else {
 						cb();
 					}
 				}
@@ -1034,4 +1034,9 @@ gulp.task("default", require("./lib/task-default"));
 
 process.on("uncaughtException", (error) => {
 	console.error(error);
+	if (!process.exitCode) {
+		process.exitCode = 1;
+	}
 });
+
+module.exports = gulp;

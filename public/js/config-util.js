@@ -1,4 +1,4 @@
-"use strict";
+
 const stringify = require("json-stable-stringify");
 const editorconfig = require("editorconfig");
 const cosmiconfig = require("cosmiconfig");
@@ -26,7 +26,7 @@ function rcProxy(cfg) {
 					if (typeof obj[prop] !== "object") {
 						return obj[prop];
 					}
-				} else {
+				}else {
 					obj[prop] = {};
 				}
 				return creatPropProxy(obj[prop]);
@@ -37,7 +37,7 @@ function rcProxy(cfg) {
 	function fixRule(rule) {
 		if (rule == null) {
 			rule = [];
-		} else if (!Array.isArray(rule)) {
+		}else if (!Array.isArray(rule)) {
 			rule = [rule];
 		}
 		return rule;
@@ -51,12 +51,12 @@ function rcProxy(cfg) {
 						get(rules, ruleName) {
 							if (obj.rules) {
 								return fixRule(rules[ruleName]);
-							} else {
+							}else {
 								return fixRule(null);
 							}
 						},
 					});
-				} else {
+				}else {
 					return obj[prop];
 				}
 			},
@@ -76,11 +76,11 @@ function rcProxy(cfg) {
 							return creatPropProxy(rules[ruleName]);
 						},
 					});
-				} else if (prop in obj) {
+				}else if (prop in obj) {
 					if (typeof obj[prop] !== "object") {
 						return obj[prop];
 					}
-				} else {
+				}else {
 					obj[prop] = {};
 				}
 				return creatPropProxy(obj[prop]);
@@ -100,14 +100,14 @@ function rcProxy(cfg) {
 			prop = new Function(`return this${formatKey(prop)}`);
 			try {
 				return prop.call(getProxy(cfg));
-			} catch (ex) {
+			}catch (ex) {
 				//
 			}
 		},
 		set(prop, value) {
 			if (/^\w+$/.test(prop)) {
 				cfg[prop] = value;
-			} else {
+			}else {
 				new Function(`return this.proxy${formatKey(prop)} = this.value`).call({
 					proxy: setProxy(cfg),
 					value,
@@ -151,7 +151,7 @@ const util = {
 						return util.writeRcAsync(result.filepath, pkg);
 					});
 				};
-			} else {
+			}else {
 				result.write = data => {
 					return util.writeRcAsync(result.filepath, data);
 				};
@@ -162,7 +162,7 @@ const util = {
 	},
 	readFileAsync(file) {
 		if (!fileCache[file]) {
-			fileCache[file] = fs.readFileAsync(file)
+			fileCache[file] = fs.readFile(file)
 
 			.then(contents => contents.toString())
 
@@ -187,7 +187,7 @@ const util = {
 				}
 			}
 			if (data !== contents) {
-				return fileCache[file] = fs.writeFileAsync(file, data)
+				return fileCache[file] = fs.writeFile(file, data)
 
 				.then(() => data);
 			}

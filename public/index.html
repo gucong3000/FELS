@@ -175,6 +175,20 @@ require("./js/app");
 					</fieldset>
 					<div class="rules">
 						<fieldset>
+							<legend>严格模式</legend>
+							<select name="rules.strict[0]">
+								<option value="off">关闭</option>
+								<option value="warn">警告</option>
+								<option value="error" selected>错误</option>
+							</select>
+							<select name="rules.strict[1]">
+								<option value="safe" selected>自动</option>
+								<option value="global">全局严格模式</option>
+								<option value="function">函数声明或表达式开始位置</option>
+								<option value="never">禁用严格模式指令</option>
+							</select>
+						</fieldset>
+						<fieldset>
 							<legend>统一引号风格</legend>
 							<select name="rules.quotes[0]">
 								<option value="off">关闭</option>
@@ -212,7 +226,23 @@ require("./js/app");
 							</label>
 						</fieldset>
 						<fieldset>
-							<legend>代码块前空格</legend>
+							<legend>关键字前后空格</legend>
+							<select name="rules.keyword-spacing[0]">
+								<option value="off">关闭</option>
+								<option value="warn">警告</option>
+								<option value="error" selected>错误</option>
+							</select>
+							<label>
+								<input type="checkbox" name="rules.keyword-spacing[1].before" checked>
+								关键字前空格
+							</label>
+							<label>
+								<input type="checkbox" name="rules.keyword-spacing[1].after" checked>
+								关键字后空格
+							</label>
+						</fieldset>
+						<fieldset>
+							<legend>语句块前空格</legend>
 							<select name="rules.space-before-blocks[0]">
 								<option value="off">关闭</option>
 								<option value="warn">警告</option>
@@ -222,6 +252,22 @@ require("./js/app");
 								<option value="always" selected>强制空格</option>
 								<option value="never">强制不空格</option>
 							</select>
+						</fieldset>
+						<fieldset>
+							<legend>箭头前后空格</legend>
+							<select name="rules.arrow-spacing[0]">
+								<option value="off">关闭</option>
+								<option value="warn">警告</option>
+								<option value="error" selected>错误</option>
+							</select>
+							<label>
+								<input type="checkbox" name="rules.arrow-spacing[1].before" checked>
+								箭头前空格
+							</label>
+							<label>
+								<input type="checkbox" name="rules.arrow-spacing[1].after" checked>
+								箭头后空格
+							</label>
 						</fieldset>
 						<fieldset>
 							<legend>逗号前后空格</legend>
@@ -240,7 +286,7 @@ require("./js/app");
 							</label>
 						</fieldset>
 						<fieldset>
-							<legend>运算符前后强制空格</legend>
+							<legend>运算符前后空格</legend>
 							<select name="rules.space-infix-ops[0]">
 								<option value="off">关闭</option>
 								<option value="warn">警告</option>

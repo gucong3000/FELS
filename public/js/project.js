@@ -1,4 +1,4 @@
-"use strict";
+
 const path = require("path");
 const fs = require("fs-extra-async");
 const chokidar = require("chokidar");
@@ -100,10 +100,10 @@ const project = {
 			if (exists) {
 				if (path.indexOf(process.cwd()) === 0) {
 					location.reload();
-				} else if (server.livereload) {
+				}else if (server.livereload) {
 					server.livereload.refresh(path);
 				}
-			} else {
+			}else {
 				reporter.update(project.curr);
 			}
 		}
@@ -123,8 +123,8 @@ const project = {
 		}
 		let pkg;
 		try {
-			pkg = await fs.readJsonAsync(path.join(project.curr.path, "package.json"));
-		} catch (ex) {
+			pkg = await fs.readJson(path.join(project.curr.path, "package.json"));
+		}catch (ex) {
 			//
 		}
 		Array.from(build.elements).forEach(elem => {
@@ -134,7 +134,7 @@ const project = {
 				}
 				if (elem.name in options) {
 					elem.value = options[elem.name];
-				} else {
+				}else {
 					options[elem.name] = elem.value;
 				}
 			}
@@ -161,15 +161,15 @@ function getElemVal(elem) {
 	let value;
 	if (elem.tagName === "SELECT") {
 		value = elem.value;
-	} else if (elem.type === "checkbox") {
+	}else if (elem.type === "checkbox") {
 		if (elem.getAttribute("value") == null) {
 			value = elem.checked;
-		} else if (/\[\]$/.test(elem.name)) {
+		}else if (/\[\]$/.test(elem.name)) {
 			value = Array.from(elem.form.querySelectorAll(`[name="${elem.name}"]:checked`)).map(elem => elem.value);
-		} else {
+		}else {
 			value = elem.checked ? elem.value : null;
 		}
-	} else if (elem.type === "radio") {
+	}else if (elem.type === "radio") {
 		if (!elem.checked) {
 			elem = elem.form.querySelector(`[name="${elem.name}"]:checked`);
 		}
@@ -178,7 +178,7 @@ function getElemVal(elem) {
 	if (typeof value === "string") {
 		try {
 			value = JSON.parse(value);
-		} catch (ex) {
+		}catch (ex) {
 			//
 		}
 	}
@@ -219,7 +219,7 @@ function initPlan(name) {
 					// 打开配置文件
 					app.openInEditor(path.resolve(currPath, rcPath));
 				});
-			} else {
+			}else {
 				// 直接打开配置文件
 				app.openInEditor(path.join(currPath, rcPath[name][i]));
 			}
@@ -245,15 +245,15 @@ function initPlan(name) {
 					}
 					if (elem.type === "radio") {
 						elem.checked = elem.value === String(value);
-					} else if (elem.type === "checkbox") {
+					}else if (elem.type === "checkbox") {
 						if (elem.getAttribute("value") == null) {
 							elem.checked = !!value;
-						} else if (Array.isArray(value)) {
+						}else if (Array.isArray(value)) {
 							elem.checked = value.indexOf(elem.value) >= 0;
-						} else {
+						}else {
 							elem.checked = elem.value === String(value);
 						}
-					} else {
+					}else {
 						elem.value = value;
 					}
 				}

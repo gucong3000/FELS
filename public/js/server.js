@@ -1,4 +1,4 @@
-"use strict";
+
 const Koa = require("koa");
 const send = require("koa-send");
 const jspm = require("jspm");
@@ -22,16 +22,16 @@ jspm.setPackagePath(process.cwd());
 
 function index(ctx, filePath, option = {}) {
 	let dir = path.join(option.root || process.cwd(), filePath || ctx.path);
-	return fs.readdirAsync(dir)
+	return fs.readdir(dir)
 
-	.then(subNames => Promise.all(subNames.map(item => fs.statAsync(path.join(dir, item)).then(stats => item + (stats.isDirectory() ? "/" : "")))))
+	.then(subNames => Promise.all(subNames.map(item => fs.stat(path.join(dir, item)).then(stats => item + (stats.isDirectory() ? "/" : "")))))
 
 	.then(subNames => {
 		if (/\/$/.test(ctx.path)) {
 			let parent = filePath.length > 1 ? `<a href="..">..</a><br>` : `<a href="/">/</a><br>`;
 			ctx.body = `<h1>${ dir }</h1>${ parent }` + subNames.map(name => `<a href="${ name }">${ name }</a>`).join("<br>");
 			ctx.type = "html";
-		} else {
+		}else {
 			ctx.redirect(ctx.originalUrl.replace(/(\?|$)/, "/$1"));
 		}
 	}).catch(() => undefined);
@@ -48,7 +48,7 @@ function checkout(cwd, rev) {
 		// 根据代码库类型确定默认分支名与切换命令
 		if (type === "hg") {
 			cmd = "hg update --clean --rev " + (rev || "default");
-		} else if (type === "git") {
+		}else if (type === "git") {
 			cmd = "git checkout --force " + (rev || "master");
 		}
 
@@ -83,7 +83,7 @@ let server = {
 			Object.keys(options).forEach(name => {
 				wraper.querySelector(`[name="${ name }"]`).value = options[name];
 			});
-		} else {
+		}else {
 
 			// 初始化配置
 			options = {};
@@ -108,8 +108,8 @@ let server = {
 		// 获取package.json
 		let pkg;
 		try {
-			pkg = await fs.readJsonAsync(path.join(proj.path, "package.json"));
-		} catch (ex) {
+			pkg = await fs.readJson(path.join(proj.path, "package.json"));
+		}catch (ex) {
 			pkg = {};
 		}
 
@@ -118,7 +118,7 @@ let server = {
 			return strPath.replace(/\$\{\s*(.+?)\s*\}/g, function(s, key) {
 				try {
 					s = new Function("pkg", "return " + key)(pkg) || s;
-				} catch (ex) {
+				}catch (ex) {
 					//
 				}
 				return s;
@@ -137,8 +137,8 @@ let server = {
 			// 尝试根据本地是否有jspm_packages文件夹确定是否jspm项目
 			let stats;
 			try {
-				stats = await fs.statAsync(path.join(proj.path, "jspm_packages"));
-			} catch (ex) {
+				stats = await fs.stat(path.join(proj.path, "jspm_packages"));
+			}catch (ex) {
 				//
 			}
 			// 本地有jspm_packages则确实为jspm项目
@@ -195,9 +195,9 @@ let server = {
 				let processors;
 				if (/\.(?:s?css|less)$/i.test(ctx.path)) {
 					processors = require("../../lib/processors-style")(ctx.path);
-				} else if (/\.(?:jsx?|es\d*|babel)$/i.test(ctx.path)) {
+				}else if (/\.(?:jsx?|es\d*|babel)$/i.test(ctx.path)) {
 					processors = require("../../lib/processors-script")(ctx.path);
-				} else {
+				}else {
 					return;
 				}
 
@@ -211,9 +211,9 @@ let server = {
 			}).catch(ex => {
 				if (error) {
 					error = error.concat(ex);
-				} else if (Array.isArray(ex)) {
+				}else if (Array.isArray(ex)) {
 					error = ex;
-				} else {
+				}else {
 					error = [ex];
 				}
 
@@ -270,7 +270,7 @@ let server = {
 
 				if (ctx.app.env === "development") {
 					config = JSON.stringify(config, 0, "\t");
-				} else {
+				}else {
 					config = JSON.stringify(config);
 				}
 				config = config.replace(/((['"])baseURL\2\:\s*)(['"]).*?\3/, (s, prefix) => prefix + baseURL);
@@ -312,7 +312,7 @@ let server = {
 
 				if (!proj.build.server) {
 					return;
-				} else {
+				}else {
 					return server.getConfig(proj);
 				}
 			}).filter(proj => proj));
@@ -330,7 +330,7 @@ let server = {
 			if (ctx.status === 404) {
 				if (ctx.path === "/") {
 					ctx.body = buildInfos.map(buildInfo => `<a href="${ buildInfo.server }">${ buildInfo.server }</a>`).join("<br>");
-				} else {
+				}else {
 					await server.runProj(ctx, {
 						jspm: {},
 						path: jspmPackagePath,

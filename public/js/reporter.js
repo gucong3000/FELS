@@ -1,4 +1,4 @@
-"use strict";
+
 const urlmap = {
 	"stylelint": "http://stylelint.io/user-guide/rules/",
 	"ESLint": "http://cn.eslint.org/docs/rules/",
@@ -47,11 +47,11 @@ function toHTML(base, relative, errors) {
 			if (url) {
 				if (url.call) {
 					url = url(error.rule);
-				} else {
+				}else {
 					url += error.rule;
 				}
 				subMsg.push(`<a href="${ url }" target="${ error.plugin ? error.plugin.toLowerCase() : "_blank" }">${ error.rule }</a>`);
-			} else {
+			}else {
 				subMsg.push(error.rule);
 			}
 		}
@@ -81,11 +81,11 @@ function toHTML(base, relative, errors) {
 function severity2num(severity) {
 	if (!severity) {
 		severity = 0;
-	} else if (severity === "error") {
+	}else if (severity === "error") {
 		severity = 1;
-	} else if (severity === "warn") {
+	}else if (severity === "warn") {
 		severity = 2;
-	} else {
+	}else {
 		severity = 3;
 	}
 	return severity;
@@ -100,9 +100,9 @@ function sortError(errors) {
 	return errors.sort(function(err1, err2) {
 		if (err1.severity !== err2.severity) {
 			return severity2num(err1.severity) - severity2num(err2.severity);
-		} else if (err1.lineNumber === err2.lineNumber) {
+		}else if (err1.lineNumber === err2.lineNumber) {
 			return (err1.columnNumber || 0) - (err1.columnNumber || 0);
-		} else {
+		}else {
 			return (err1.lineNumber || 0) - (err2.lineNumber || 0);
 		}
 	});
@@ -134,7 +134,7 @@ function concat2Obj(obj, key, arr) {
 		if (arr) {
 			obj[key] = obj[key].concat(arr);
 		}
-	} else {
+	}else {
 		obj[key] = arr;
 	}
 }
@@ -155,13 +155,13 @@ let reporter = {
 
 		// 过滤掉本地不存在的文件
 		paths = await Promise.all(paths.map(file => {
-			return fs.statAsync(path.resolve(proj.path, file))
+			return fs.stat(path.resolve(proj.path, file))
 
 			.then(stat => stat.isFile())
 
 			.catch(() => false)
 
-			.then(isFile=> isFile ? file : null);
+			.then(isFile => isFile ? file : null);
 		}));
 
 		paths = paths.filter(Boolean);
@@ -194,7 +194,7 @@ let reporter = {
 		if (report && proj.report) {
 			// 在错误报告旧数据中追加数据
 			Object.assign(proj.report, dataUnifiedPath);
-		} else {
+		}else {
 			// 整理错误报告数据
 			proj.report = dataUnifiedPath;
 		}
@@ -211,7 +211,7 @@ let reporter = {
 		Object.keys(data).sort().forEach(filePath => {
 			if (data[filePath]) {
 				result.push.apply(result, toHTML(base, filePath, data[filePath]));
-			} else {
+			}else {
 				delete data[filePath];
 			}
 		});
@@ -227,7 +227,7 @@ let reporter = {
 	fix: function(error) {
 		if (Array.isArray(error)) {
 			return sortError(error.map(fixError));
-		} else {
+		}else {
 			return [fixError(error)];
 		}
 	}
