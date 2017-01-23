@@ -45,7 +45,7 @@
     "gulp-uglify": "^2.0.0",
     "gulp-util": "^3.0.8",
     "iconv-lite": "^0.4.15",
-    "jspm": "^0.16.45",
+    "jspm": "^0.16.49",
     "koa": "^2.0.0-alpha.7",
     "koa-compose": "^3.1.0",
     "koa-send": "^3.3.0",
