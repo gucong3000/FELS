@@ -24,6 +24,10 @@
 				"before": false
 			}
 		],
+		"eqeqeq": [
+			"error",
+			"smart"
+		],
 		"indent": [
 			"warn",
 			"tab",

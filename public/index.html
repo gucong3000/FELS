@@ -306,11 +306,23 @@ require("./js/app");
 							</select>
 						</fieldset>
 						<fieldset>
+							<legend>要求使用 === 和 !==</legend>
+							<select name="rules.eqeqeq[0]">
+								<option value="off">关闭</option>
+								<option value="warn">警告</option>
+								<option value="error" selected>错误</option>
+							</select>
+							<select name="rules.eqeqeq[1]">
+								<option value="always">强制使用</option>
+								<option value="smart" selected>`typeof`和`null`除外</option>
+							</select>
+						</fieldset>
+						<fieldset>
 							<legend>强制使用有效的 JSDoc 注释</legend>
 							<select name="rules.valid-jsdoc[0]">
 								<option value="off">关闭</option>
-								<option value="warn" selected>警告</option>
-								<option value="error">错误</option>
+								<option value="warn">警告</option>
+								<option value="error" selected>错误</option>
 							</select>
 							<label>
 								<input type="checkbox" name="rules.valid-jsdoc[1].requireReturn">
