@@ -46,7 +46,7 @@
     "gulp-util": "^3.0.8",
     "iconv-lite": "^0.4.15",
     "jspm": "^0.16.52",
-    "koa": "^2.0.0-alpha.7",
+    "koa": "^2.0.1",
     "koa-compose": "^3.1.0",
     "koa-send": "^3.3.0",
     "lodash": "^4.17.4",
