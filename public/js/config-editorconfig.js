@@ -33,9 +33,8 @@ let editorconfig = {
 		.then(parseString)
 
 		.catch(() => {
-			unit.writeFileAsync(rcPath, `# This file is for unifying the coding style for different editors and IDEs
-# editorconfig.org
-
+			unit.writeFileAsync(rcPath, `# EditorConfig is awesome: http://EditorConfig.org
+# top-most EditorConfig file
 root = true
 
 [*]
@@ -43,7 +42,7 @@ charset = utf-8
 end_of_line = lf
 indent_style = tab
 insert_final_newline = true
-trim_trailing_whitespace = true`)
+trim_trailing_whitespace = true`);
 			return defaultConfig;
 		});
 	},
@@ -51,7 +50,7 @@ trim_trailing_whitespace = true`)
 		let rcPath = path.join(baseDir, ".editorconfig");
 		let keys = Object.keys(config).sort();
 		if (/^tab$/i.test(config.indent_style)) {
-			keys = keys.filter(key => !/^indent_size$/i.test(key))
+			keys = keys.filter(key => !/^indent_size$/i.test(key));
 		}
 		config = keys.map(key => `${ key } = ${ config[key] }`).join("\n");
 
