@@ -93,7 +93,7 @@
     "js-beautify": "^1.6.11",
     "json-stable-stringify": "^1.0.1",
     "koa-livereload": "^0.2.0",
-    "livereload": "^0.6.1",
+    "livereload": "^0.6.2",
     "markdown-it": "^8.3.1",
     "node-notifier": "^5.0.2",
     "nslookup": "^1.1.1",
