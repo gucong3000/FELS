@@ -104,7 +104,7 @@
     "serve-index": "^1.7.3",
     "spdy": "^3.2.3",
     "stream-consume": "^0.1.0",
-    "stylefmt": "^5.2.0",
+    "stylefmt": "^5.3.0",
     "stylelint": "^7.9.0",
     "stylelint-config-standard": "^16.0.0",
     "stylelint-config-suitcss": "^10.0.0"
