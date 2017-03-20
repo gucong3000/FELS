@@ -39,7 +39,7 @@
     "gulp-if": "^2.0.0",
     "gulp-ng-annotate": "^2.0.0",
     "gulp-plumber": "^1.1.0",
-    "gulp-postcss": "^6.3.0",
+    "gulp-postcss": "^6.4.0",
     "gulp-remember": "^0.3.0",
     "gulp-sourcemaps": "^2.4.1",
     "gulp-uglify": "^2.1.1",
