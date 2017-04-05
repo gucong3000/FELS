@@ -53,7 +53,7 @@
     "mime-types": "^2.1.15",
     "morgan": "^1.8.1",
     "mz": "^2.6.0",
-    "phantom": "^4.0.1",
+    "phantom": "^4.0.2",
     "pixrem": "^3.0.2",
     "postcss": "^5.2.16",
     "postcss-cssnext": "^2.10.0",
