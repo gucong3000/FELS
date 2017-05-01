@@ -44,7 +44,7 @@
     "gulp-sourcemaps": "^2.6.0",
     "gulp-uglify": "^2.1.2",
     "gulp-util": "^3.0.8",
-    "iconv-lite": "^0.4.16",
+    "iconv-lite": "^0.4.17",
     "jspm": "^0.16.53",
     "koa": "^2.2.0",
     "koa-compose": "^4.0.0",
