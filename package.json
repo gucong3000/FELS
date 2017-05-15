@@ -81,7 +81,7 @@
     "editorconfig": "^0.13.2",
     "end-of-stream": "^1.4.0",
     "eslint": "^3.19.0",
-    "eslint-config-airbnb": "^14.1.0",
+    "eslint-config-airbnb": "^15.0.0",
     "eslint-config-google": "^0.7.1",
     "eslint-config-postcss": "^2.0.2",
     "eslint-plugin-import": "^2.2.0",
