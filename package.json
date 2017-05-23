@@ -102,7 +102,7 @@
     "queue-fun": "^0.3.2",
     "request": "^2.81.0",
     "serve-index": "^1.7.3",
-    "spdy": "^3.2.3",
+    "spdy": "^3.4.5",
     "stream-consume": "^0.1.0",
     "stylefmt": "^5.3.2",
     "stylelint": "^7.10.1",
