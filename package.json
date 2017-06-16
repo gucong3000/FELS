@@ -105,7 +105,7 @@
     "spdy": "^3.4.7",
     "stream-consume": "^0.1.0",
     "stylefmt": "^6.0.0",
-    "stylelint": "^7.11.0",
+    "stylelint": "^7.11.1",
     "stylelint-config-standard": "^16.0.0",
     "stylelint-config-suitcss": "^11.0.0"
   },
