@@ -30,7 +30,7 @@
     "eslint-plugin-jsx-a11y": "^5.0.1",
     "etag": "^1.8.0",
     "express": "^4.15.3",
-    "fs-extra-async": "^2.0.2",
+    "fs-extra-async": "^2.0.3",
     "graceful-fs": "^4.1.11",
     "gulp": "gulpjs/gulp#4.0",
     "gulp-babel": "^6.1.2",
