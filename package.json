@@ -85,7 +85,7 @@
     "eslint-config-google": "^0.8.0",
     "eslint-config-postcss": "^2.0.2",
     "eslint-plugin-import": "^2.6.0",
-    "eslint-plugin-jsx-a11y": "^5.1.0",
+    "eslint-plugin-jsx-a11y": "^6.0.2",
     "eslint-plugin-react": "^7.1.0",
     "express-http-proxy": "^1.0.4",
     "gulp-eslint": "^4.0.0",
