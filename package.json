@@ -21,7 +21,7 @@
     "body-parser": "^1.17.2",
     "bufferstreams": "^1.1.1",
     "cmd-deps": "^2.0.9",
-    "commander": "^2.10.0",
+    "commander": "^2.11.0",
     "compression": "^1.6.2",
     "cookie-parser": "^1.4.3",
     "cssgrace": "^3.0.0",
