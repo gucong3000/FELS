@@ -80,7 +80,7 @@
     "csscomb": "^4.2.0",
     "editorconfig": "^0.13.2",
     "end-of-stream": "^1.4.0",
-    "eslint": "^4.1.0",
+    "eslint": "^4.2.0",
     "eslint-config-airbnb": "^15.0.1",
     "eslint-config-google": "^0.8.0",
     "eslint-config-postcss": "^2.0.2",
