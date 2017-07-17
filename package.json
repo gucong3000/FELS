@@ -106,7 +106,7 @@
     "stream-consume": "^0.1.0",
     "stylefmt": "^6.0.0",
     "stylelint": "^8.0.0",
-    "stylelint-config-standard": "^16.0.0",
+    "stylelint-config-standard": "^17.0.0",
     "stylelint-config-suitcss": "^11.0.0"
   },
   "engines": {
