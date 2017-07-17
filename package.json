@@ -68,7 +68,7 @@
     "rcloader": "^0.2.2",
     "serve-favicon": "^2.4.3",
     "through2": "^2.0.3",
-    "uglify-js": "^3.0.24",
+    "uglify-js": "^3.0.25",
     "vinyl-fs": "^2.4.4"
   },
   "description": "Front End Live Stream",
@@ -105,7 +105,7 @@
     "spdy": "^3.4.7",
     "stream-consume": "^0.1.0",
     "stylefmt": "^6.0.0",
-    "stylelint": "^7.13.0",
+    "stylelint": "^8.0.0",
     "stylelint-config-standard": "^17.0.0",
     "stylelint-config-suitcss": "^11.0.0"
   },
