@@ -94,7 +94,7 @@
     "json-stable-stringify": "^1.0.1",
     "koa-livereload": "^0.2.0",
     "livereload": "^0.6.2",
-    "markdown-it": "^8.3.1",
+    "markdown-it": "^8.3.2",
     "node-notifier": "^5.1.2",
     "nslookup": "^1.1.1",
     "open": "^0.0.5",
