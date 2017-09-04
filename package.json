@@ -50,7 +50,7 @@
     "koa-compose": "^4.0.0",
     "koa-send": "^4.1.0",
     "lodash": "^4.17.4",
-    "mime-types": "^2.1.16",
+    "mime-types": "^2.1.17",
     "morgan": "^1.8.2",
     "mz": "^2.6.0",
     "phantom": "^4.0.5",
