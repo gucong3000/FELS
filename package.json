@@ -66,7 +66,7 @@
     "precss": "^2.0.0",
     "ranma": "^0.5.0",
     "rcloader": "^0.2.2",
-    "serve-favicon": "^2.4.3",
+    "serve-favicon": "^2.4.4",
     "through2": "^2.0.3",
     "uglify-js": "^3.1.0",
     "vinyl-fs": "^2.4.4"
