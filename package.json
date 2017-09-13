@@ -28,7 +28,7 @@
     "cssnano": "^3.10.0",
     "electron": "^1.7.6",
     "eslint-plugin-jsx-a11y": "^6.0.0",
-    "etag": "^1.8.0",
+    "etag": "^1.8.1",
     "express": "^4.15.3",
     "fs-extra-async": "^2.0.3",
     "graceful-fs": "^4.1.11",
