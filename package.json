@@ -107,7 +107,7 @@
     "stylefmt": "^6.0.0",
     "stylelint": "^8.1.1",
     "stylelint-config-standard": "^17.0.0",
-    "stylelint-config-suitcss": "^11.0.0"
+    "stylelint-config-suitcss": "^12.0.0"
   },
   "engines": {
     "node": ">=6"
