@@ -101,7 +101,7 @@
     "progress": "^2.0.0",
     "queue-fun": "^0.3.2",
     "request": "^2.83.0",
-    "serve-index": "^1.9.0",
+    "serve-index": "^1.9.1",
     "spdy": "^3.4.7",
     "stream-consume": "^0.1.0",
     "stylefmt": "^6.0.0",
