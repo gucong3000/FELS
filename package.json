@@ -68,7 +68,7 @@
     "rcloader": "^0.2.2",
     "serve-favicon": "^2.4.5",
     "through2": "^2.0.3",
-    "uglify-js": "^3.1.4",
+    "uglify-js": "^3.1.5",
     "vinyl-fs": "^2.4.4"
   },
   "description": "Front End Live Stream",
