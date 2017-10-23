@@ -78,7 +78,7 @@
     "connect-livereload": "^0.6.0",
     "cosmiconfig": "^3.1.0",
     "csscomb": "^4.2.0",
-    "editorconfig": "^0.14.2",
+    "editorconfig": "^0.15.0",
     "end-of-stream": "^1.4.0",
     "eslint": "^4.9.0",
     "eslint-config-airbnb": "^16.1.0",
