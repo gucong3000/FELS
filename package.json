@@ -61,7 +61,7 @@
     "postcss-flexboxfixer": "^0.0.5",
     "postcss-gradientfixer": "^0.0.6",
     "postcss-unprefix": "^2.1.1",
-    "postcss-url": "^7.1.2",
+    "postcss-url": "^7.2.1",
     "postcss-vmin": "^3.0.0",
     "precss": "^2.0.0",
     "ranma": "^0.5.0",
