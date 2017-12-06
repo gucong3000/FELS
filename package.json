@@ -19,7 +19,7 @@
     "babel-preset-stage-3": "^6.24.1",
     "babel-register": "^6.26.0",
     "body-parser": "^1.18.2",
-    "bufferstreams": "^1.1.2",
+    "bufferstreams": "^2.0.0",
     "cmd-deps": "^2.2.1",
     "commander": "^2.12.2",
     "compression": "^1.7.1",
