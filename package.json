@@ -56,7 +56,7 @@
     "phantom": "^4.0.12",
     "pixrem": "^4.0.0",
     "postcss": "^6.0.16",
-    "postcss-cssnext": "^3.0.2",
+    "postcss-cssnext": "^3.1.0",
     "postcss-filter-gradient": "^1.0.0",
     "postcss-flexboxfixer": "^0.0.5",
     "postcss-gradientfixer": "^0.0.6",
