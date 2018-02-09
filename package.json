@@ -26,7 +26,7 @@
     "cookie-parser": "^1.4.3",
     "cssgrace": "^3.0.0",
     "cssnano": "^3.10.0",
-    "electron": "^1.7.12",
+    "electron": "^1.8.2",
     "eslint-plugin-jsx-a11y": "^6.0.3",
     "etag": "^1.8.1",
     "express": "^4.15.3",
