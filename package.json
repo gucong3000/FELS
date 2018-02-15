@@ -103,7 +103,7 @@
     "request": "^2.83.0",
     "serve-index": "^1.9.1",
     "spdy": "^3.4.7",
-    "stream-consume": "^0.1.0",
+    "stream-consume": "^0.1.1",
     "stylefmt": "^6.0.0",
     "stylelint": "^8.4.0",
     "stylelint-config-standard": "^18.0.0",
