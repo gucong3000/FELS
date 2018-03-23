@@ -74,7 +74,7 @@
   "description": "Front End Live Stream",
   "devDependencies": {
     "babel-eslint": "^8.2.2",
-    "chokidar": "^2.0.2",
+    "chokidar": "^2.0.3",
     "connect-livereload": "^0.6.0",
     "cosmiconfig": "^4.0.0",
     "csscomb": "^4.2.0",
