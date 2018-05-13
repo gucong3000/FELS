@@ -69,7 +69,7 @@
     "serve-favicon": "^2.5.0",
     "through2": "^2.0.3",
     "uglify-js": "^3.3.16",
-    "vinyl-fs": "^3.0.2"
+    "vinyl-fs": "3.0.2"
   },
   "description": "Front End Live Stream",
   "devDependencies": {
