@@ -22,7 +22,7 @@
     "bufferstreams": "^2.0.0",
     "cmd-deps": "^2.3.2",
     "commander": "^2.15.1",
-    "compression": "^1.7.2",
+    "compression": "^1.7.3",
     "cookie-parser": "^1.4.3",
     "cssgrace": "^3.0.0",
     "cssnano": "^3.10.0",
