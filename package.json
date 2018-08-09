@@ -76,7 +76,7 @@
     "babel-eslint": "^8.2.2",
     "chokidar": "^2.0.3",
     "connect-livereload": "^0.6.0",
-    "cosmiconfig": "^4.0.0",
+    "cosmiconfig": "^5.0.6",
     "csscomb": "^4.2.0",
     "editorconfig": "^0.15.0",
     "end-of-stream": "^1.4.0",
