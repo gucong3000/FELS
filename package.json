@@ -100,7 +100,7 @@
     "open": "^0.0.5",
     "progress": "^2.0.0",
     "queue-fun": "^0.3.2",
-    "request": "^2.85.0",
+    "request": "^2.88.0",
     "serve-index": "^1.9.1",
     "spdy": "^3.4.7",
     "stream-consume": "^0.1.1",
