@@ -67,7 +67,7 @@
     "ranma": "^0.5.0",
     "rcloader": "^0.2.2",
     "serve-favicon": "^2.5.0",
-    "through2": "^2.0.3",
+    "through2": "^2.0.4",
     "uglify-js": "^3.3.16",
     "vinyl-fs": "^3.0.2"
   },
