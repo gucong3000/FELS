@@ -63,7 +63,7 @@
     "postcss-unprefix": "^2.1.2",
     "postcss-url": "^7.3.1",
     "postcss-vmin": "^3.0.0",
-    "precss": "^3.1.2",
+    "precss": "^4.0.0",
     "ranma": "^0.5.0",
     "rcloader": "^0.2.2",
     "serve-favicon": "^2.5.0",
