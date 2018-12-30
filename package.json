@@ -54,7 +54,7 @@
     "morgan": "^1.9.0",
     "mz": "^2.7.0",
     "phantom": "^4.0.12",
-    "pixrem": "^4.0.0",
+    "pixrem": "^5.0.0",
     "postcss": "^6.0.21",
     "postcss-cssnext": "^3.1.0",
     "postcss-filter-gradient": "^1.0.0",
