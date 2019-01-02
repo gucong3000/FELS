@@ -60,7 +60,7 @@
     "postcss-filter-gradient": "^1.0.0",
     "postcss-flexboxfixer": "^0.0.5",
     "postcss-gradientfixer": "^0.0.6",
-    "postcss-unprefix": "^2.1.2",
+    "postcss-unprefix": "^2.1.4",
     "postcss-url": "^7.3.1",
     "postcss-vmin": "^3.0.0",
     "precss": "^3.1.2",
