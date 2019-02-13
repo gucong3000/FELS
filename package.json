@@ -23,7 +23,7 @@
     "cmd-deps": "^2.3.2",
     "commander": "^2.15.1",
     "compression": "^1.7.2",
-    "cookie-parser": "^1.4.3",
+    "cookie-parser": "^1.4.4",
     "cssgrace": "^3.0.0",
     "cssnano": "^3.10.0",
     "electron": "^1.8.4",
