@@ -27,7 +27,7 @@
     "cssgrace": "^3.0.0",
     "cssnano": "^3.10.0",
     "electron": "^1.8.4",
-    "eslint-plugin-jsx-a11y": "^6.0.3",
+    "eslint-plugin-jsx-a11y": "^6.2.3",
     "etag": "^1.8.1",
     "express": "^4.15.3",
     "fs-extra-async": "^2.0.3",
