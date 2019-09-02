@@ -82,7 +82,7 @@
     "end-of-stream": "^1.4.0",
     "eslint": "^5.0.0",
     "eslint-config-airbnb": "^16.1.0",
-    "eslint-config-google": "^0.9.1",
+    "eslint-config-google": "^0.14.0",
     "eslint-config-postcss": "^2.0.2",
     "eslint-plugin-import": "^2.9.0",
     "eslint-plugin-jsx-a11y": "^6.0.2",
