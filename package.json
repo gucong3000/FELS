@@ -95,7 +95,7 @@
     "koa-livereload": "^0.2.0",
     "livereload": "^0.7.0",
     "markdown-it": "^8.4.1",
-    "node-notifier": "^5.2.0",
+    "node-notifier": "^6.0.0",
     "nslookup": "^1.1.1",
     "open": "^0.0.5",
     "progress": "^2.0.0",
